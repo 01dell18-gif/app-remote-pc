@@ -22,6 +22,7 @@ interface NavbarProps {
   onOpenLockModal: () => void;
   onOpenManageLabsModal: () => void;
   onOpenRemoteAppModal: () => void;
+  onOpenPowerModal: (mode: 'WAKE' | 'SHUTDOWN') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -30,6 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenLockModal,
   onOpenManageLabsModal,
   onOpenRemoteAppModal,
+  onOpenPowerModal,
 }) => {
   const { user, logout } = useAuthStore();
   const {
@@ -37,38 +39,15 @@ export const Navbar: React.FC<NavbarProps> = ({
     selectedLab,
     selectLab,
     workstations,
-    wakeOnLanWorkstations,
-    shutdownWorkstations,
     isClassroomLocked,
   } = useLabStore();
 
   const [labDropdownOpen, setLabDropdownOpen] = useState(false);
+  const [powerDropdownOpen, setPowerDropdownOpen] = useState(false);
 
   const onlineCount = workstations.filter((w) => w.powerStatus === 'ONLINE').length;
   const inSessionCount = workstations.filter((w) => w.powerStatus === 'IN_SESSION').length;
   const offlineCount = workstations.filter((w) => w.powerStatus === 'OFFLINE').length;
-
-  const handleWakeAll = async () => {
-    const offlineIds = workstations.filter((w) => w.powerStatus === 'OFFLINE').map((w) => w.id);
-    if (offlineIds.length === 0) {
-      alert('Semua workstation di lab ini sudah dalam kondisi menyala!');
-      return;
-    }
-    if (confirm(`Kirim sinyal Magic Packet Wake-on-LAN ke ${offlineIds.length} unit komputer yang sedang mati?`)) {
-      await wakeOnLanWorkstations(offlineIds);
-    }
-  };
-
-  const handleShutdownAll = async () => {
-    const activeIds = workstations.filter((w) => w.powerStatus !== 'OFFLINE').map((w) => w.id);
-    if (activeIds.length === 0) {
-      alert('Tidak ada workstation yang aktif untuk dimatikan.');
-      return;
-    }
-    if (confirm(`PENTING: Matikan ${activeIds.length} unit komputer aktif di lab ini secara tertib?`)) {
-      await shutdownWorkstations(activeIds);
-    }
-  };
 
   const canManage = user?.role === 'SUPERADMIN' || user?.role === 'INSTRUCTOR';
   const isAdmin = user?.role === 'SUPERADMIN';
@@ -198,25 +177,90 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           {canManage && (
             <div className="flex items-center gap-1.5">
-              {/* Tombol WoL Massal */}
-              <button
-                onClick={handleWakeAll}
-                title="Bangunkan seluruh komputer mati di lab ini via Wake-on-LAN"
-                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <Zap className="w-3.5 h-3.5 text-emerald-400 fill-current" />
-                <span>Nyalakan Semua (WoL)</span>
-              </button>
+              {/* Dropdown Kontrol Daya (Nyalakan & Matikan) - Menghemat Ruang */}
+              <div className="relative">
+                <button
+                  onClick={() => setPowerDropdownOpen(!powerDropdownOpen)}
+                  title="Kelola daya komputer lab (Nyalakan & Matikan)"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-850 hover:bg-surface-800 text-slate-200 border border-slate-700/80 transition-all hover:border-slate-600 shadow-sm"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Kontrol Daya</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                      powerDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
 
-              {/* Tombol Shutdown Massal */}
-              <button
-                onClick={handleShutdownAll}
-                title="Matikan seluruh komputer aktif secara tertib"
-                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <Power className="w-3.5 h-3.5 text-rose-400" />
-                <span>Matikan Semua</span>
-              </button>
+                {powerDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-20"
+                      onClick={() => setPowerDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-surface-850 border border-slate-700 shadow-2xl p-2 z-30 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        Opsi Manajemen Daya Lab
+                      </div>
+
+                      <div className="space-y-1 mt-1">
+                        {/* Opsi 1: Nyalakan Komputer (WoL) */}
+                        <button
+                          onClick={() => {
+                            setPowerDropdownOpen(false);
+                            onOpenPowerModal('WAKE');
+                          }}
+                          className="w-full text-left p-2.5 rounded-xl hover:bg-emerald-950/30 border border-transparent hover:border-emerald-500/30 transition-all flex items-start gap-3 group"
+                        >
+                          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform shrink-0 mt-0.5">
+                            <Zap className="w-4 h-4 fill-current" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-white group-hover:text-emerald-300">
+                                Nyalakan Komputer (WoL)
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold font-mono">
+                                {offlineCount} Mati
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                              Kirim sinyal Magic Packet jaringan untuk menghidupkan komputer yang mati.
+                            </p>
+                          </div>
+                        </button>
+
+                        {/* Opsi 2: Matikan Komputer (Shutdown) */}
+                        <button
+                          onClick={() => {
+                            setPowerDropdownOpen(false);
+                            onOpenPowerModal('SHUTDOWN');
+                          }}
+                          className="w-full text-left p-2.5 rounded-xl hover:bg-rose-950/30 border border-transparent hover:border-rose-500/30 transition-all flex items-start gap-3 group"
+                        >
+                          <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 group-hover:scale-110 transition-transform shrink-0 mt-0.5">
+                            <Power className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-white group-hover:text-rose-300">
+                                Matikan Komputer (Shutdown)
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-semibold font-mono">
+                                {onlineCount + inSessionCount} Aktif
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                              Kirim perintah shutdown sistem operasi secara tertib ke komputer aktif.
+                            </p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
 
               {/* Tombol Kunci Layar Siswa */}
               <button

@@ -6,8 +6,6 @@ import {
   Filter,
   MonitorOff,
   LayoutGrid,
-  Grid3X3,
-  Maximize2,
   ChevronDown,
 } from 'lucide-react';
 import { useLabStore } from '../../stores/labStore';
@@ -114,49 +112,20 @@ export const LabGrid: React.FC<LabGridProps> = ({
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          <div className="h-5 w-[1px] bg-slate-800 hidden sm:block" />
-
-          {/* View Size Switcher (Kecil, Sedang, Besar) */}
-          <div className="flex items-center gap-1 p-1 bg-surface-850 rounded-xl border border-slate-750">
-            <span className="text-[11px] text-slate-400 px-2 font-medium hidden sm:inline-block">Ukuran:</span>
-            <button
-              onClick={() => setCardSize('small')}
-              title="Tampilan Kecil (Grid Rapat)"
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                cardSize === 'small'
-                  ? 'bg-brand-500 text-slate-950 shadow-glow-teal'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
+          {/* View Size Dropdown (Menghemat Ruang) */}
+          <div className="relative shrink-0">
+            <select
+              value={cardSize}
+              onChange={(e) => setCardSize(e.target.value as any)}
+              aria-label="Ukuran Tampilan Grid"
+              className="appearance-none bg-surface-850 hover:bg-surface-800 border border-slate-700/80 text-xs font-semibold text-slate-200 pl-8 pr-8 py-2 rounded-xl focus:outline-none focus:border-brand-500 cursor-pointer transition-colors shadow-sm"
             >
-              <Grid3X3 className="w-3.5 h-3.5" />
-              <span>Kecil</span>
-            </button>
-
-            <button
-              onClick={() => setCardSize('medium')}
-              title="Tampilan Sedang (Default)"
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                cardSize === 'medium'
-                  ? 'bg-brand-500 text-slate-950 shadow-glow-teal'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Sedang</span>
-            </button>
-
-            <button
-              onClick={() => setCardSize('large')}
-              title="Tampilan Besar (Visual HD)"
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                cardSize === 'large'
-                  ? 'bg-brand-500 text-slate-950 shadow-glow-teal'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span>Besar</span>
-            </button>
+              <option value="small">Ukuran: Kecil (Rapat)</option>
+              <option value="medium">Ukuran: Sedang (Default)</option>
+              <option value="large">Ukuran: Besar (HD)</option>
+            </select>
+            <LayoutGrid className="w-3.5 h-3.5 text-brand-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
       </div>

@@ -11,12 +11,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  Monitor,
 } from 'lucide-react';
 
 interface RemoteAppModalProps {
   isOpen: boolean;
   onClose: () => void;
-  targetWorkstation?: Workstation | null; // null jika eksekusi seluruh lab
+  targetWorkstation?: Workstation | null;
 }
 
 export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
@@ -28,6 +29,7 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<'LAUNCH' | 'TERMINATE'>('LAUNCH');
   const [executionMode, setExecutionMode] = useState<'PATH' | 'SCRIPT'>('PATH');
+  const [selectedWorkstationIds, setSelectedWorkstationIds] = useState<number[]>([]);
 
   // Launch states
   const [appPath, setAppPath] = useState('notepad.exe');
@@ -50,19 +52,29 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setFeedback(null);
-      api.getAppPresets().then((res) => {
-        if (res.presets) setPresets(res.presets);
-      }).catch(() => {});
+      if (targetWorkstation) {
+        setSelectedWorkstationIds([targetWorkstation.id]);
+      } else {
+        const activeIds = workstations
+          .filter((w) => w.powerStatus !== 'OFFLINE')
+          .map((w) => w.id);
+        setSelectedWorkstationIds(activeIds.length > 0 ? activeIds : workstations.map((w) => w.id));
+      }
+
+      api
+        .getAppPresets()
+        .then((res) => {
+          if (res.presets) setPresets(res.presets);
+        })
+        .catch(() => {});
     }
-  }, [isOpen]);
+  }, [isOpen, targetWorkstation, workstations]);
 
-  const targetWorkstationIds = targetWorkstation
-    ? [targetWorkstation.id]
-    : workstations.filter((w) => w.powerStatus !== 'OFFLINE').map((w) => w.id);
-
-  const targetLabel = targetWorkstation
-    ? `${targetWorkstation.hostname} (${targetWorkstation.ipAddress})`
-    : `Seluruh Komputer Aktif di ${selectedLab?.labName || 'Lab'} (${targetWorkstationIds.length} Unit)`;
+  const toggleWorkstationSelect = (id: number) => {
+    setSelectedWorkstationIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
   const handleApplyPreset = (p: any) => {
     setAppPath(p.appPath);
@@ -73,10 +85,10 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
 
   const handleLaunch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (targetWorkstationIds.length === 0) {
+    if (selectedWorkstationIds.length === 0) {
       setFeedback({
         type: 'error',
-        message: 'Tidak ada workstation aktif yang menjadi target eksekusi.',
+        message: 'Silakan pilih setidaknya satu perangkat komputer sebelum menjalankan aplikasi.',
       });
       return;
     }
@@ -85,7 +97,7 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
     setFeedback(null);
     try {
       const res = await api.launchApp({
-        workstationIds: targetWorkstationIds,
+        workstationIds: selectedWorkstationIds,
         appPath,
         args,
         executionType: executionMode,
@@ -94,7 +106,7 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
 
       setFeedback({
         type: 'success',
-        message: res.message || 'Aplikasi berhasil dijalankan pada target!',
+        message: res.message || `Aplikasi berhasil dijalankan pada ${selectedWorkstationIds.length} komputer target!`,
       });
     } catch (err: any) {
       setFeedback({
@@ -108,10 +120,10 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
 
   const handleTerminate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (targetWorkstationIds.length === 0) {
+    if (selectedWorkstationIds.length === 0) {
       setFeedback({
         type: 'error',
-        message: 'Tidak ada workstation aktif yang menjadi target penutupan.',
+        message: 'Silakan pilih setidaknya satu perangkat komputer sebelum menutup aplikasi.',
       });
       return;
     }
@@ -120,14 +132,14 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
     setFeedback(null);
     try {
       const res = await api.terminateApp({
-        workstationIds: targetWorkstationIds,
+        workstationIds: selectedWorkstationIds,
         processName,
         force: forceKill,
       });
 
       setFeedback({
         type: 'success',
-        message: res.message || 'Instruksi penutupan proses aplikasi berhasil dikirim!',
+        message: res.message || `Instruksi penutupan proses berhasil dikirim ke ${selectedWorkstationIds.length} komputer target!`,
       });
     } catch (err: any) {
       setFeedback({
@@ -143,13 +155,13 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Manajer Aplikasi & Skrip Jarak Jauh (Remote App Control)"
-      subtitle={`Target: ${targetLabel}`}
+      title="Manajer Aplikasi & Skrip Klien (Remote App Control)"
+      subtitle={`Kelola eksekusi program di ${selectedLab?.labName || 'Laboratorium'}`}
       maxWidth="2xl"
     >
       <div className="space-y-4">
         {/* Tab Pilihan: Jalankan vs Tutup Aplikasi */}
-        <div className="flex items-center gap-2 p-1 bg-surface-850 rounded-2xl border border-slate-750">
+        <div className="flex items-center gap-2 p-1 bg-surface-950 rounded-2xl border border-slate-800">
           <button
             type="button"
             onClick={() => {
@@ -186,7 +198,7 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
         {/* Feedback Alert */}
         {feedback && (
           <div
-            className={`p-3 rounded-xl flex items-center gap-2 text-xs animate-in fade-in duration-150 ${
+            className={`p-3 rounded-xl flex items-center gap-2 text-xs font-medium animate-in fade-in duration-150 ${
               feedback.type === 'success'
                 ? 'bg-emerald-950/60 border border-emerald-500/30 text-emerald-300'
                 : 'bg-rose-950/60 border border-rose-500/30 text-rose-300'
@@ -200,6 +212,84 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
             <span>{feedback.message}</span>
           </div>
         )}
+
+        {/* Pemilihan Komputer Target (Interactive Device Selector) */}
+        <div className="p-3 rounded-xl bg-surface-950 border border-slate-800 space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <Monitor className="w-3.5 h-3.5 text-teal-400" />
+              <span>Target Komputer ({selectedWorkstationIds.length} dari {workstations.length} dipilih):</span>
+            </span>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedWorkstationIds(
+                    workstations.filter((w) => w.powerStatus !== 'OFFLINE').map((w) => w.id)
+                  )
+                }
+                className="text-[10px] px-2 py-0.5 rounded bg-surface-850 hover:bg-surface-800 text-teal-300 border border-teal-500/30 transition-colors"
+              >
+                Pilih Semua Online
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedWorkstationIds(workstations.map((w) => w.id))}
+                className="text-[10px] px-2 py-0.5 rounded bg-surface-850 hover:bg-surface-800 text-slate-300 border border-slate-700 transition-colors"
+              >
+                Semua Komputer
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedWorkstationIds([])}
+                className="text-[10px] px-2 py-0.5 rounded bg-surface-850 hover:bg-surface-800 text-rose-300 border border-slate-700 transition-colors"
+              >
+                Batal Pilih
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-32 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 pt-1">
+            {workstations.map((ws) => {
+              const checked = selectedWorkstationIds.includes(ws.id);
+              const isOnline = ws.powerStatus === 'ONLINE';
+              const isInSession = ws.powerStatus === 'IN_SESSION';
+
+              return (
+                <div
+                  key={ws.id}
+                  onClick={() => toggleWorkstationSelect(ws.id)}
+                  className={`flex items-center gap-2 p-2 rounded-lg border text-[11px] cursor-pointer transition-all ${
+                    checked
+                      ? 'bg-teal-950/40 border-teal-500/50 text-teal-200'
+                      : 'bg-surface-900/60 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {}}
+                    className="accent-teal-400 rounded w-3.5 h-3.5 pointer-events-none"
+                  />
+                  <div className="truncate flex-1">
+                    <div className="font-bold text-white truncate">{ws.hostname}</div>
+                    <div className="text-[10px] text-slate-400 font-mono truncate">{ws.ipAddress}</div>
+                  </div>
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      isOnline
+                        ? 'bg-emerald-400 shadow-glow-emerald'
+                        : isInSession
+                        ? 'bg-amber-400'
+                        : 'bg-rose-500'
+                    }`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Quick Presets Carousel / Grid */}
         <div>
@@ -242,7 +332,7 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
                 />
                 <span className="flex items-center gap-1">
                   <FolderOpen className="w-3.5 h-3.5 text-teal-400" />
-                  <span>Alamat Path / Nama Executable</span>
+                  <span>Alamat Path / Nama Executable (.exe)</span>
                 </span>
               </label>
 
@@ -310,7 +400,7 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
 
             <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
               <span className="text-[11px] text-slate-400 font-mono">
-                Penerima: {targetWorkstationIds.length} Workstation
+                Target Terpilih: {selectedWorkstationIds.length} Komputer
               </span>
 
               <div className="flex items-center gap-2">
@@ -323,11 +413,11 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || selectedWorkstationIds.length === 0}
                   className="px-5 py-2 rounded-xl text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white shadow-glow-teal flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>{isSubmitting ? 'Mengeksekusi...' : 'Jalankan Aplikasi'}</span>
+                  <span>{isSubmitting ? 'Mengeksekusi...' : `Jalankan Aplikasi (${selectedWorkstationIds.length} PC)`}</span>
                 </button>
               </div>
             </div>
@@ -373,7 +463,7 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
 
             <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
               <span className="text-[11px] text-slate-400 font-mono">
-                Target: {targetWorkstationIds.length} Workstation
+                Target Terpilih: {selectedWorkstationIds.length} Komputer
               </span>
 
               <div className="flex items-center gap-2">
@@ -386,11 +476,11 @@ export const RemoteAppModal: React.FC<RemoteAppModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || selectedWorkstationIds.length === 0}
                   className="px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-glow-rose flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>{isSubmitting ? 'Menghentikan...' : 'Tutup Proses Aplikasi'}</span>
+                  <span>{isSubmitting ? 'Menghentikan...' : `Tutup Proses Aplikasi (${selectedWorkstationIds.length} PC)`}</span>
                 </button>
               </div>
             </div>

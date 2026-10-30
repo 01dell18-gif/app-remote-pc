@@ -9,6 +9,7 @@ import { AuditLogsModal } from './components/dashboard/AuditLogsModal';
 import { ManageLabsModal } from './components/dashboard/ManageLabsModal';
 import { RemoteViewport } from './components/remote/RemoteViewport';
 import { RemoteAppModal } from './components/dashboard/RemoteAppModal';
+import { PowerControlModal } from './components/dashboard/PowerControlModal';
 import { LoginModal } from './components/auth/LoginModal';
 import { Workstation } from './types';
 import { api } from './services/api';
@@ -31,6 +32,9 @@ export const App: React.FC = () => {
   const [lockModalOpen, setLockModalOpen] = useState(false);
   const [manageLabsModalOpen, setManageLabsModalOpen] = useState(false);
   const [remoteAppModalOpen, setRemoteAppModalOpen] = useState(false);
+  const [powerModalOpen, setPowerModalOpen] = useState(false);
+  const [powerModalMode, setPowerModalMode] = useState<'WAKE' | 'SHUTDOWN'>('WAKE');
+  const [powerModalTarget, setPowerModalTarget] = useState<Workstation | null>(null);
   const [appModalTarget, setAppModalTarget] = useState<Workstation | null>(null);
   const [workstationToEdit, setWorkstationToEdit] = useState<Workstation | null>(null);
 
@@ -51,6 +55,12 @@ export const App: React.FC = () => {
   const handleOpenAppManager = (ws?: Workstation) => {
     setAppModalTarget(ws || null);
     setRemoteAppModalOpen(true);
+  };
+
+  const handleOpenPowerModal = (mode: 'WAKE' | 'SHUTDOWN', ws?: Workstation) => {
+    setPowerModalMode(mode);
+    setPowerModalTarget(ws || null);
+    setPowerModalOpen(true);
   };
 
   const handleEditWorkstation = (ws: Workstation) => {
@@ -85,6 +95,7 @@ export const App: React.FC = () => {
         onOpenLockModal={() => setLockModalOpen(true)}
         onOpenManageLabsModal={() => setManageLabsModalOpen(true)}
         onOpenRemoteAppModal={() => handleOpenAppManager()}
+        onOpenPowerModal={handleOpenPowerModal}
       />
 
       {/* Classroom Lock Banner jika aktif */}
@@ -154,6 +165,16 @@ export const App: React.FC = () => {
           setAppModalTarget(null);
         }}
         targetWorkstation={appModalTarget}
+      />
+
+      <PowerControlModal
+        isOpen={powerModalOpen}
+        onClose={() => {
+          setPowerModalOpen(false);
+          setPowerModalTarget(null);
+        }}
+        initialMode={powerModalMode}
+        targetWorkstation={powerModalTarget}
       />
 
       <ClassroomLockModal
