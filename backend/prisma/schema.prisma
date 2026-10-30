@@ -1,0 +1,84 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPERADMIN
+  INSTRUCTOR
+  LAB_ASSISTANT
+}
+
+enum PowerStatus {
+  ONLINE
+  OFFLINE
+  IN_SESSION
+  UNREACHABLE
+}
+
+enum ConnectionMode {
+  RDP_FULL
+  RDP_SHADOW
+  VNC
+  MOCK_AGENT
+}
+
+model Laboratory {
+  id               Int           @id @default(autoincrement())
+  labName          String        @unique
+  subnetBroadcast  String        @default("192.168.1.255")
+  totalCapacity    Int           @default(40)
+  createdAt        DateTime      @default(now())
+  workstations     Workstation[]
+
+  @@map("laboratories")
+}
+
+model Workstation {
+  id              Int            @id @default(autoincrement())
+  labId           Int
+  hostname        String
+  ipAddress       String
+  macAddress      String         @unique
+  gridRow         Int            @default(1)
+  gridColumn      Int            @default(1)
+  osFamily        String         @default("WINDOWS")
+  connectionMode  ConnectionMode @default(RDP_SHADOW)
+  powerStatus     PowerStatus    @default(OFFLINE)
+  lastHeartbeat   DateTime?
+  laboratory      Laboratory     @relation(fields: [labId], references: [id], onDelete: Cascade)
+  auditTrails     AuditTrail[]
+
+  @@map("workstations")
+}
+
+model User {
+  id           Int          @id @default(autoincrement())
+  username     String       @unique
+  passwordHash String
+  fullName     String
+  role         Role         @default(INSTRUCTOR)
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  auditTrails  AuditTrail[]
+
+  @@map("users")
+}
+
+model AuditTrail {
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  workstationId Int?
+  actionName    String
+  actionStatus  String
+  executedAt    DateTime     @default(now())
+  metadataJson  String?
+  user          User         @relation(fields: [userId], references: [id])
+  workstation   Workstation? @relation(fields: [workstationId], references: [id], onDelete: SetNull)
+
+  @@map("audit_trails")
+}

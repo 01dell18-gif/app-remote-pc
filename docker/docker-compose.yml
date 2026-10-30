@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # Daemon Penerjemah Protokol Apache Guacamole
+  guacd:
+    image: guacamole/guacd:latest
+    container_name: remote_guacd
+    restart: always
+    ports:
+      - "4822:4822"
+    networks:
+      - lab_network
+
+  # Basis Data PostgreSQL
+  database:
+    image: postgres:15-alpine
+    container_name: remote_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: remote_lab_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lab_network
+
+  # Simulasi Target Klien Lab 1 (VNC Mock Desktop)
+  mock_client_01:
+    image: theasp/novnc:latest
+    container_name: mock_client_01
+    environment:
+      DISPLAY_WIDTH: 1280
+      DISPLAY_HEIGHT: 720
+    ports:
+      - "5901:5900" # Expose VNC Port untuk guacd
+      - "8080:8080" # Web noVNC interface for visual verification
+    networks:
+      - lab_network
+
+networks:
+  lab_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
