@@ -10,6 +10,8 @@ import { ManageLabsModal } from './components/dashboard/ManageLabsModal';
 import { RemoteViewport } from './components/remote/RemoteViewport';
 import { RemoteAppModal } from './components/dashboard/RemoteAppModal';
 import { PowerControlModal } from './components/dashboard/PowerControlModal';
+import { RestrictionModal } from './components/dashboard/RestrictionModal';
+import { ImportExportModal } from './components/dashboard/ImportExportModal';
 import { LoginModal } from './components/auth/LoginModal';
 import { Workstation } from './types';
 import { api } from './services/api';
@@ -35,6 +37,9 @@ export const App: React.FC = () => {
   const [powerModalOpen, setPowerModalOpen] = useState(false);
   const [powerModalMode, setPowerModalMode] = useState<'WAKE' | 'SHUTDOWN'>('WAKE');
   const [powerModalTarget, setPowerModalTarget] = useState<Workstation | null>(null);
+  const [restrictionModalOpen, setRestrictionModalOpen] = useState(false);
+  const [restrictionTarget, setRestrictionTarget] = useState<Workstation | null>(null);
+  const [importExportModalOpen, setImportExportModalOpen] = useState(false);
   const [appModalTarget, setAppModalTarget] = useState<Workstation | null>(null);
   const [workstationToEdit, setWorkstationToEdit] = useState<Workstation | null>(null);
 
@@ -61,6 +66,11 @@ export const App: React.FC = () => {
     setPowerModalMode(mode);
     setPowerModalTarget(ws || null);
     setPowerModalOpen(true);
+  };
+
+  const handleOpenRestrictionModal = (ws?: Workstation) => {
+    setRestrictionTarget(ws || null);
+    setRestrictionModalOpen(true);
   };
 
   const handleEditWorkstation = (ws: Workstation) => {
@@ -96,6 +106,8 @@ export const App: React.FC = () => {
         onOpenManageLabsModal={() => setManageLabsModalOpen(true)}
         onOpenRemoteAppModal={() => handleOpenAppManager()}
         onOpenPowerModal={handleOpenPowerModal}
+        onOpenRestrictionModal={() => handleOpenRestrictionModal()}
+        onOpenImportExportModal={() => setImportExportModalOpen(true)}
       />
 
       {/* Classroom Lock Banner jika aktif */}
@@ -140,6 +152,7 @@ export const App: React.FC = () => {
           onEditWorkstation={handleEditWorkstation}
           onDeleteWorkstation={handleDeleteWorkstation}
           onOpenAppManager={handleOpenAppManager}
+          onOpenRestrictionManager={handleOpenRestrictionModal}
         />
       </main>
 
@@ -180,6 +193,20 @@ export const App: React.FC = () => {
       <ClassroomLockModal
         isOpen={lockModalOpen}
         onClose={() => setLockModalOpen(false)}
+      />
+
+      <RestrictionModal
+        isOpen={restrictionModalOpen}
+        onClose={() => {
+          setRestrictionModalOpen(false);
+          setRestrictionTarget(null);
+        }}
+        targetWorkstation={restrictionTarget}
+      />
+
+      <ImportExportModal
+        isOpen={importExportModalOpen}
+        onClose={() => setImportExportModalOpen(false)}
       />
 
       <AuditLogsModal

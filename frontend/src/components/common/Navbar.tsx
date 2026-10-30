@@ -12,6 +12,8 @@ import {
   Shield,
   Settings2,
   Terminal,
+  Ban,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useLabStore } from '../../stores/labStore';
@@ -23,6 +25,8 @@ interface NavbarProps {
   onOpenManageLabsModal: () => void;
   onOpenRemoteAppModal: () => void;
   onOpenPowerModal: (mode: 'WAKE' | 'SHUTDOWN') => void;
+  onOpenRestrictionModal: () => void;
+  onOpenImportExportModal: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,6 +36,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenManageLabsModal,
   onOpenRemoteAppModal,
   onOpenPowerModal,
+  onOpenRestrictionModal,
+  onOpenImportExportModal,
 }) => {
   const { user, logout } = useAuthStore();
   const {
@@ -177,15 +183,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           {canManage && (
             <div className="flex items-center gap-1.5">
-              {/* Dropdown Kontrol Daya (Nyalakan & Matikan) - Menghemat Ruang */}
+              {/* Dropdown Terpadu: Kontrol & Aksi Lab (Daya, Kunci, Aplikasi, Blokir) */}
               <div className="relative">
                 <button
                   onClick={() => setPowerDropdownOpen(!powerDropdownOpen)}
-                  title="Kelola daya komputer lab (Nyalakan & Matikan)"
+                  title="Opsi Kendali & Manajemen Lab (Daya, Kunci Layar, Aplikasi, Blokir)"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-850 hover:bg-surface-800 text-slate-200 border border-slate-700/80 transition-all hover:border-slate-600 shadow-sm"
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Kontrol Daya</span>
+                  <span>Kontrol & Aksi Lab</span>
                   <ChevronDown
                     className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
                       powerDropdownOpen ? 'rotate-180' : ''
@@ -199,19 +205,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                       className="fixed inset-0 z-20"
                       onClick={() => setPowerDropdownOpen(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-surface-850 border border-slate-700 shadow-2xl p-2 z-30 animate-in fade-in zoom-in-95 duration-150">
-                      <div className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Opsi Manajemen Daya Lab
+                    <div className="absolute right-0 mt-2 w-84 sm:w-96 rounded-2xl bg-surface-850 border border-slate-700 shadow-2xl p-2 z-30 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-slate-800/80 mb-1">
+                        <span>Opsi Manajemen & Kontrol Lab</span>
+                        <span className="text-teal-400 font-mono">{workstations.length} Komputer</span>
                       </div>
 
-                      <div className="space-y-1 mt-1">
+                      <div className="space-y-1 max-h-[420px] overflow-y-auto pr-0.5">
                         {/* Opsi 1: Nyalakan Komputer (WoL) */}
                         <button
                           onClick={() => {
                             setPowerDropdownOpen(false);
                             onOpenPowerModal('WAKE');
                           }}
-                          className="w-full text-left p-2.5 rounded-xl hover:bg-emerald-950/30 border border-transparent hover:border-emerald-500/30 transition-all flex items-start gap-3 group"
+                          className="w-full text-left p-2 rounded-xl hover:bg-emerald-950/30 border border-transparent hover:border-emerald-500/30 transition-all flex items-start gap-2.5 group"
                         >
                           <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-110 transition-transform shrink-0 mt-0.5">
                             <Zap className="w-4 h-4 fill-current" />
@@ -237,7 +244,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             setPowerDropdownOpen(false);
                             onOpenPowerModal('SHUTDOWN');
                           }}
-                          className="w-full text-left p-2.5 rounded-xl hover:bg-rose-950/30 border border-transparent hover:border-rose-500/30 transition-all flex items-start gap-3 group"
+                          className="w-full text-left p-2 rounded-xl hover:bg-rose-950/30 border border-transparent hover:border-rose-500/30 transition-all flex items-start gap-2.5 group"
                         >
                           <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 group-hover:scale-110 transition-transform shrink-0 mt-0.5">
                             <Power className="w-4 h-4" />
@@ -256,37 +263,107 @@ export const Navbar: React.FC<NavbarProps> = ({
                             </p>
                           </div>
                         </button>
+
+                        {/* Opsi 3: Kunci Layar & Input Siswa */}
+                        <button
+                          onClick={() => {
+                            setPowerDropdownOpen(false);
+                            onOpenLockModal();
+                          }}
+                          className="w-full text-left p-2 rounded-xl hover:bg-amber-950/30 border border-transparent hover:border-amber-500/30 transition-all flex items-start gap-2.5 group"
+                        >
+                          <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:scale-110 transition-transform shrink-0 mt-0.5">
+                            <Lock className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-white group-hover:text-amber-300">
+                                Kunci Layar & Input Siswa
+                              </span>
+                              <span
+                                className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold font-mono ${
+                                  isClassroomLocked
+                                    ? 'bg-amber-500 text-slate-950 font-bold'
+                                    : 'bg-slate-800 text-slate-300'
+                                }`}
+                              >
+                                {isClassroomLocked ? 'Terkunci' : 'Normal'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                              Nonaktifkan mouse, keyboard & tampilkan overlay instruksi ke siswa.
+                            </p>
+                          </div>
+                        </button>
+
+                        {/* Opsi 4: Buka / Tutup Aplikasi (Remote App) */}
+                        <button
+                          onClick={() => {
+                            setPowerDropdownOpen(false);
+                            onOpenRemoteAppModal();
+                          }}
+                          className="w-full text-left p-2 rounded-xl hover:bg-teal-950/30 border border-transparent hover:border-teal-500/30 transition-all flex items-start gap-2.5 group"
+                        >
+                          <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 group-hover:scale-110 transition-transform shrink-0 mt-0.5">
+                            <Terminal className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-white group-hover:text-teal-300">
+                                Buka / Tutup Aplikasi (Remote App)
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-semibold font-mono">
+                                Eksekusi
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                              Jalankan software atau hentikan proses aplikasi di komputer target.
+                            </p>
+                          </div>
+                        </button>
+
+                        {/* Opsi 5: Blokir Aplikasi & Website (App & Web Blocker) */}
+                        <button
+                          onClick={() => {
+                            setPowerDropdownOpen(false);
+                            onOpenRestrictionModal();
+                          }}
+                          className="w-full text-left p-2 rounded-xl hover:bg-purple-950/30 border border-transparent hover:border-purple-500/30 transition-all flex items-start gap-2.5 group"
+                        >
+                          <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 group-hover:scale-110 transition-transform shrink-0 mt-0.5">
+                            <Ban className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-white group-hover:text-purple-300">
+                                Blokir Aplikasi & Website
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-semibold font-mono">
+                                Proteksi
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                              Batasi akses game, sosmed, aplikasi, atau link website tertentu siswa.
+                            </p>
+                          </div>
+                        </button>
                       </div>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* Tombol Kunci Layar Siswa */}
-              <button
-                onClick={onOpenLockModal}
-                title="Kunci masukan mouse & keyboard siswa"
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  isClassroomLocked
-                    ? 'bg-amber-500 text-slate-950 font-bold shadow-glow-amber animate-pulse'
-                    : 'bg-surface-850 hover:bg-surface-800 text-slate-300 border border-slate-700/60'
-                }`}
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">
-                  {isClassroomLocked ? 'Layar Terkunci' : 'Kunci Layar'}
-                </span>
-              </button>
-
-              {/* Tombol Jalankan / Tutup Aplikasi Massal */}
-              <button
-                onClick={onOpenRemoteAppModal}
-                title="Buka atau tutup aplikasi pada seluruh komputer lab"
-                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-850 hover:bg-surface-800 text-teal-300 border border-teal-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <Terminal className="w-3.5 h-3.5 text-teal-400" />
-                <span>Jalankan Aplikasi</span>
-              </button>
+              {/* Tombol Impor & Ekspor Database PC */}
+              {isAdmin && (
+                <button
+                  onClick={onOpenImportExportModal}
+                  title="Impor atau ekspor database inventaris komputer massal (CSV/JSON)"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-850 hover:bg-surface-800 text-teal-300 border border-teal-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Impor / Ekspor</span>
+                </button>
+              )}
 
               {/* Tombol Tambah Komputer */}
               {isAdmin && (

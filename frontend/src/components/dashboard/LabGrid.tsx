@@ -14,12 +14,14 @@ interface LabGridProps {
   onEditWorkstation: (ws: Workstation) => void;
   onDeleteWorkstation: (id: number) => void;
   onOpenAppManager: (ws: Workstation) => void;
+  onOpenRestrictionManager?: (ws: Workstation) => void;
 }
 
 export const LabGrid: React.FC<LabGridProps> = ({
   onEditWorkstation,
   onDeleteWorkstation,
   onOpenAppManager,
+  onOpenRestrictionManager,
 }) => {
   const {
     workstations,
@@ -168,6 +170,7 @@ export const LabGrid: React.FC<LabGridProps> = ({
                     onEdit={onEditWorkstation}
                     onDelete={onDeleteWorkstation}
                     onOpenAppManager={onOpenAppManager}
+                    onOpenRestrictionManager={onOpenRestrictionManager}
                     size={cardSize}
                   />
                 ))}

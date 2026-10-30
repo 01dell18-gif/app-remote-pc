@@ -204,4 +204,56 @@ export const api = {
     });
     return handleResponse(res);
   },
+
+  // Pembatasan Aplikasi & Link Website (Restrictions)
+  async applyRestriction(data: {
+    workstationIds: number[];
+    type: 'APP' | 'WEBSITE';
+    target: string;
+    action: 'BLOCK' | 'UNBLOCK';
+    reason?: string;
+  }): Promise<{ success: boolean; message: string; activeRestrictions: any[] }> {
+    const res = await fetch(`${API_BASE}/execution/restrictions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+  },
+
+  async getRestrictions(): Promise<{ success: boolean; activeRestrictions: any[]; presets: any }> {
+    const res = await fetch(`${API_BASE}/execution/restrictions`, {
+      headers: { ...getAuthHeader() },
+    });
+    return handleResponse(res);
+  },
+
+  // Ekspor & Impor Database Komputer
+  async exportWorkstations(labId?: number): Promise<{ success: boolean; count: number; workstations: Workstation[] }> {
+    const url = labId ? `${API_BASE}/workstations/export?labId=${labId}` : `${API_BASE}/workstations/export`;
+    const res = await fetch(url, {
+      headers: { ...getAuthHeader() },
+    });
+    return handleResponse(res);
+  },
+
+  async importWorkstations(data: {
+    labId: number;
+    workstations: any[];
+    mode?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    createdCount: number;
+    updatedCount: number;
+    skippedCount: number;
+    errors: string[];
+  }> {
+    const res = await fetch(`${API_BASE}/workstations/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+  },
 };

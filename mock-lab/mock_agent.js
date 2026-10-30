@@ -74,6 +74,16 @@ function createCommandServer(port = 5902) {
             });
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true, message: 'Proses dihentikan' }));
+          } else if (req.url === '/restrictions' || req.url === '/api/restrictions') {
+            const { type, target, action } = data;
+            console.log(`\x1b[35m[Mock Agent] Pembatasan ${type}: "${target}" -> ${action}\x1b[0m`);
+            if (action === 'BLOCK') {
+              if (type === 'APP') {
+                exec(`taskkill /F /IM "${target}" /T`, { windowsHide: true }, () => {});
+              }
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: `Pembatasan ${target} ${action}` }));
           }
         } catch (e) {
           res.writeHead(400);

@@ -266,4 +266,175 @@ export class ExecutionController {
 
     res.json({ success: true, presets });
   }
+
+  // Penyimpanan aturan pembatasan aktif
+  private static activeRestrictions: Array<{
+    id: string;
+    type: 'APP' | 'WEBSITE';
+    target: string;
+    reason?: string;
+    blockedAt: string;
+    workstationIds: number[];
+  }> = [];
+
+  /**
+   * Terapkan pembatasan / pemblokiran aplikasi atau link website
+   */
+  public static async applyRestriction(req: Request, res: Response): Promise<void> {
+    try {
+      const { workstationIds, type, target, action, reason } = req.body;
+
+      if (!workstationIds || !Array.isArray(workstationIds) || workstationIds.length === 0) {
+        res.status(400).json({ success: false, message: 'Daftar workstationIds wajib diberikan' });
+        return;
+      }
+
+      if (!type || !['APP', 'WEBSITE'].includes(type)) {
+        res.status(400).json({ success: false, message: 'Tipe pembatasan harus APP atau WEBSITE' });
+        return;
+      }
+
+      if (!target || !target.trim()) {
+        res.status(400).json({ success: false, message: 'Target nama aplikasi atau alamat domain tidak boleh kosong' });
+        return;
+      }
+
+      const cleanTarget = target.trim().toLowerCase();
+      const workstations = await prisma.workstation.findMany({
+        where: { id: { in: workstationIds.map((id: any) => Number(id)) } },
+      });
+
+      for (const ws of workstations) {
+        // Coba kirimkan instruksi pembatasan ke Mock Agent jika aktif pada port 5902
+        try {
+          const agentUrl = `http://${ws.ipAddress === '127.0.0.1' || ws.ipAddress.startsWith('192.168.1.') ? '127.0.0.1' : ws.ipAddress}:5902/api/restrictions`;
+          fetch(agentUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, target: cleanTarget, action }),
+            signal: AbortSignal.timeout(1500),
+          }).catch(() => {});
+        } catch (_) {}
+
+        // Eksekusi pada host Windows lokal (fallback / native enforcement)
+        if (action === 'BLOCK') {
+          if (type === 'APP') {
+            // Matikan langsung proses jika sedang berjalan
+            exec(`taskkill /F /IM ${cleanTarget}`, { windowsHide: true }, () => {});
+            // Daftarkan dummy debugger di registry agar tidak dapat dibuka siswa
+            exec(
+              `reg add "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\${cleanTarget}" /v Debugger /t REG_SZ /d "systray.exe" /f`,
+              { windowsHide: true },
+              () => {}
+            );
+          } else if (type === 'WEBSITE') {
+            // Sinkhole domain ke 127.0.0.1 pada hosts Windows
+            const hostsCmd = `powershell -Command "Add-Content -Path $env:windir\\System32\\drivers\\etc\\hosts -Value \`"127.0.0.1 ${cleanTarget} # FYJ_BLOCK\`" -ErrorAction SilentlyContinue"`;
+            exec(hostsCmd, { windowsHide: true }, () => {});
+          }
+        } else {
+          // UNBLOCK
+          if (type === 'APP') {
+            exec(
+              `reg delete "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\${cleanTarget}" /v Debugger /f`,
+              { windowsHide: true },
+              () => {}
+            );
+          } else if (type === 'WEBSITE') {
+            const cleanHostsCmd = `powershell -Command "try { (Get-Content -Path $env:windir\\System32\\drivers\\etc\\hosts) | Where-Object { $_ -notmatch '${cleanTarget}' } | Set-Content -Path $env:windir\\System32\\drivers\\etc\\hosts } catch {}"`;
+            exec(cleanHostsCmd, { windowsHide: true }, () => {});
+          }
+        }
+
+        if (req.user) {
+          await AuditService.log(
+            req.user.id,
+            action === 'BLOCK' ? 'RESTRICTION_APPLIED' : 'RESTRICTION_REMOVED',
+            'SUCCESS',
+            ws.id,
+            { type, target: cleanTarget, action, reason }
+          );
+        }
+      }
+
+      // Perbarui state in-memory aturan aktif
+      if (action === 'BLOCK') {
+        const existingIdx = ExecutionController.activeRestrictions.findIndex(
+          (r) => r.type === type && r.target.toLowerCase() === cleanTarget
+        );
+        if (existingIdx >= 0) {
+          ExecutionController.activeRestrictions[existingIdx].workstationIds = Array.from(
+            new Set([...ExecutionController.activeRestrictions[existingIdx].workstationIds, ...workstationIds])
+          );
+        } else {
+          ExecutionController.activeRestrictions.push({
+            id: `${type}_${Date.now()}`,
+            type,
+            target: cleanTarget,
+            reason: reason || 'Pembatasan fokus kelas oleh pengajar',
+            blockedAt: new Date().toISOString(),
+            workstationIds,
+          });
+        }
+      } else {
+        // UNBLOCK: hapus workstationIds atau hapus aturan jika kosong
+        ExecutionController.activeRestrictions = ExecutionController.activeRestrictions
+          .map((r) => {
+            if (r.type === type && r.target.toLowerCase() === cleanTarget) {
+              return {
+                ...r,
+                workstationIds: r.workstationIds.filter((id) => !workstationIds.includes(id)),
+              };
+            }
+            return r;
+          })
+          .filter((r) => r.workstationIds.length > 0);
+      }
+
+      res.json({
+        success: true,
+        message:
+          action === 'BLOCK'
+            ? `Berhasil memblokir ${type === 'APP' ? 'aplikasi' : 'website'} '${cleanTarget}' pada ${workstationIds.length} komputer target.`
+            : `Berhasil membuka blokir '${cleanTarget}' pada ${workstationIds.length} komputer target.`,
+        activeRestrictions: ExecutionController.activeRestrictions,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal memproses pembatasan: ' + err.message });
+    }
+  }
+
+  /**
+   * Mendapatkan daftar pembatasan aktif dan template preset
+   */
+  public static async getRestrictions(_req: Request, res: Response): Promise<void> {
+    const presetBans = {
+      apps: [
+        { name: 'Discord', processName: 'Discord.exe', category: 'Sosial & Komunikasi' },
+        { name: 'Spotify Music', processName: 'Spotify.exe', category: 'Streaming Musik' },
+        { name: 'Telegram Desktop', processName: 'Telegram.exe', category: 'Sosial & Komunikasi' },
+        { name: 'Steam Client', processName: 'steam.exe', category: 'Game & Hiburan' },
+        { name: 'Roblox Player', processName: 'RobloxPlayerBeta.exe', category: 'Game & Hiburan' },
+        { name: 'Minecraft', processName: 'javaw.exe', category: 'Game & Hiburan' },
+        { name: 'Genshin Impact', processName: 'GenshinImpact.exe', category: 'Game & Hiburan' },
+        { name: 'Epic Games', processName: 'EpicGamesLauncher.exe', category: 'Game & Hiburan' },
+      ],
+      websites: [
+        { name: 'YouTube Video', domain: 'youtube.com', category: 'Streaming Video' },
+        { name: 'TikTok', domain: 'tiktok.com', category: 'Media Sosial' },
+        { name: 'Facebook', domain: 'facebook.com', category: 'Media Sosial' },
+        { name: 'Instagram', domain: 'instagram.com', category: 'Media Sosial' },
+        { name: 'Twitter / X', domain: 'x.com', category: 'Media Sosial' },
+        { name: 'Roblox Web', domain: 'roblox.com', category: 'Game Online' },
+        { name: 'Netflix', domain: 'netflix.com', category: 'Streaming Film' },
+        { name: 'ChatGPT / AI Bot', domain: 'chatgpt.com', category: 'Kecerdasan Buatan (AI)' },
+      ],
+    };
+
+    res.json({
+      success: true,
+      activeRestrictions: ExecutionController.activeRestrictions,
+      presets: presetBans,
+    });
+  }
 }

@@ -155,4 +155,149 @@ export class WorkstationController {
       res.status(500).json({ success: false, message: 'Gagal menghapus workstation' });
     }
   }
+
+  /**
+   * Ekspor data komputer lab ke format JSON/CSV
+   */
+  public static async exportWorkstations(req: Request, res: Response): Promise<void> {
+    try {
+      const labId = req.query.labId ? parseInt(req.query.labId as string, 10) : undefined;
+      const filter = labId ? { labId } : {};
+
+      const workstations = await prisma.workstation.findMany({
+        where: filter,
+        orderBy: [{ gridRow: 'asc' }, { gridColumn: 'asc' }],
+        include: { laboratory: { select: { labName: true } } },
+      });
+
+      res.json({
+        success: true,
+        count: workstations.length,
+        workstations,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal mengekspor data workstation: ' + err.message });
+    }
+  }
+
+  /**
+   * Impor massal data komputer dari CSV atau JSON
+   */
+  public static async importWorkstations(req: Request, res: Response): Promise<void> {
+    try {
+      const { labId, workstations, mode = 'upsert' } = req.body;
+
+      if (!labId || !Array.isArray(workstations) || workstations.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: 'Parameter labId dan daftar workstations (array) wajib diisi',
+        });
+        return;
+      }
+
+      const targetLabId = parseInt(labId, 10);
+      let createdCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+      const errors: string[] = [];
+
+      for (let i = 0; i < workstations.length; i++) {
+        const item = workstations[i];
+        const rowNum = i + 1;
+
+        if (!item.hostname || !item.ipAddress || !item.macAddress) {
+          errors.push(`Baris ${rowNum}: Hostname, IP Address, dan MAC Address wajib diisi.`);
+          skippedCount++;
+          continue;
+        }
+
+        const normalizedHostname = String(item.hostname).trim();
+        const normalizedIp = String(item.ipAddress).trim();
+        const normalizedMac = String(item.macAddress).trim().toUpperCase();
+        const row = item.gridRow ? parseInt(item.gridRow, 10) : 1;
+        const col = item.gridColumn ? parseInt(item.gridColumn, 10) : (createdCount + updatedCount + 1);
+        const os = item.osFamily ? String(item.osFamily).toUpperCase() : 'WINDOWS';
+        const conn = item.connectionMode || 'RDP_SHADOW';
+
+        try {
+          // Cari apakah sudah ada workstation dengan MAC Address yang sama
+          const existing = await prisma.workstation.findUnique({
+            where: { macAddress: normalizedMac },
+          });
+
+          if (existing) {
+            if (mode === 'skip') {
+              skippedCount++;
+              continue;
+            }
+
+            // Update data komputer yang sudah ada
+            await prisma.workstation.update({
+              where: { id: existing.id },
+              data: {
+                labId: targetLabId,
+                hostname: normalizedHostname,
+                ipAddress: normalizedIp,
+                gridRow: row,
+                gridColumn: col,
+                osFamily: os,
+                connectionMode: conn,
+              },
+            });
+            updatedCount++;
+          } else {
+            // Cek apakah ada konflik alamat IP dengan unit lain
+            const existingIp = await prisma.workstation.findFirst({
+              where: { ipAddress: normalizedIp },
+            });
+            if (existingIp) {
+              errors.push(`Baris ${rowNum} (${normalizedHostname}): IP '${normalizedIp}' sudah digunakan oleh '${existingIp.hostname}'.`);
+              skippedCount++;
+              continue;
+            }
+
+            // Buat workstation baru
+            await prisma.workstation.create({
+              data: {
+                labId: targetLabId,
+                hostname: normalizedHostname,
+                ipAddress: normalizedIp,
+                macAddress: normalizedMac,
+                gridRow: row,
+                gridColumn: col,
+                osFamily: os,
+                connectionMode: conn,
+                powerStatus: 'OFFLINE',
+              },
+            });
+            createdCount++;
+          }
+        } catch (itemErr: any) {
+          errors.push(`Baris ${rowNum} (${normalizedHostname}): ${itemErr.message}`);
+          skippedCount++;
+        }
+      }
+
+      if (req.user) {
+        await AuditService.log(
+          req.user.id,
+          'IMPORT_WORKSTATIONS',
+          'SUCCESS',
+          targetLabId,
+          { createdCount, updatedCount, skippedCount, totalProcessed: workstations.length }
+        );
+      }
+
+      res.json({
+        success: true,
+        message: `Impor selesai: ${createdCount} baru ditambahkan, ${updatedCount} diperbarui, ${skippedCount} dilewati.`,
+        createdCount,
+        updatedCount,
+        skippedCount,
+        errors,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal memproses impor: ' + err.message });
+    }
+  }
 }
