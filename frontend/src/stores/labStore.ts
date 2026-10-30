@@ -15,6 +15,7 @@ interface LabState {
   searchQuery: string;
   statusFilter: 'ALL' | 'ONLINE' | 'OFFLINE' | 'IN_SESSION';
   cardSize: CardSize;
+  selectedWorkstationIds: number[];
 
   // Actions
   fetchLabs: () => Promise<void>;
@@ -28,6 +29,13 @@ interface LabState {
   setCardSize: (size: CardSize) => void;
   setActiveRemoteSession: (session: RemoteSessionInfo | null) => void;
   
+  // Selection Actions
+  setSelectedWorkstationIds: (ids: number[]) => void;
+  toggleSelectWorkstation: (id: number) => void;
+  toggleSelectLabWorkstations: (labWorkstations: Workstation[]) => void;
+  selectAllWorkstations: () => void;
+  clearSelectedWorkstations: () => void;
+
   // Power Actions
   wakeOnLanWorkstations: (ids: number[]) => Promise<{ success: boolean; message: string }>;
   shutdownWorkstations: (ids: number[], force?: boolean) => Promise<{ success: boolean; message: string }>;
@@ -49,6 +57,7 @@ export const useLabStore = create<LabState>((set, get) => ({
   searchQuery: '',
   statusFilter: 'ALL',
   cardSize: 'medium',
+  selectedWorkstationIds: [],
 
   fetchLabs: async () => {
     try {
@@ -60,7 +69,7 @@ export const useLabStore = create<LabState>((set, get) => ({
           get().selectLab(res.labs[0].id);
         }
       } else {
-        set({ selectedLab: null, workstations: [] });
+        set({ selectedLab: null, workstations: [], selectedWorkstationIds: [] });
       }
     } catch (err) {
       console.error('Gagal mengambil daftar lab:', err);
@@ -74,6 +83,7 @@ export const useLabStore = create<LabState>((set, get) => ({
       set({
         selectedLab: res.lab,
         workstations: res.workstations,
+        selectedWorkstationIds: res.workstations.map((w: Workstation) => w.id),
         isLoading: false,
       });
       get().checkLockState();
@@ -109,7 +119,12 @@ export const useLabStore = create<LabState>((set, get) => ({
     if (!currentLab) return;
     try {
       const res = await api.getLabWorkstations(currentLab.id);
-      set({ workstations: res.workstations });
+      const updates: Partial<LabState> = { workstations: res.workstations };
+      // Jika belum ada yang terpilih sama sekali, pilih semua workstation lab secara otomatis
+      if (get().selectedWorkstationIds.length === 0 && res.workstations.length > 0) {
+        updates.selectedWorkstationIds = res.workstations.map((w: Workstation) => w.id);
+      }
+      set(updates);
     } catch (err) {
       console.error('Polling workstation gagal:', err);
     }
@@ -119,6 +134,37 @@ export const useLabStore = create<LabState>((set, get) => ({
   setStatusFilter: (statusFilter) => set({ statusFilter }),
   setCardSize: (cardSize) => set({ cardSize }),
   setActiveRemoteSession: (activeRemoteSession) => set({ activeRemoteSession }),
+
+  // Selection implementations
+  setSelectedWorkstationIds: (ids: number[]) => set({ selectedWorkstationIds: ids }),
+
+  toggleSelectWorkstation: (id: number) => {
+    const current = get().selectedWorkstationIds;
+    if (current.includes(id)) {
+      set({ selectedWorkstationIds: current.filter((item) => item !== id) });
+    } else {
+      set({ selectedWorkstationIds: [...current, id] });
+    }
+  },
+
+  toggleSelectLabWorkstations: (labWorkstations: Workstation[]) => {
+    const current = get().selectedWorkstationIds;
+    const labWsIds = labWorkstations.map((w) => w.id);
+    const allInLabSelected = labWsIds.length > 0 && labWsIds.every((id) => current.includes(id));
+    if (allInLabSelected) {
+      set({ selectedWorkstationIds: current.filter((id) => !labWsIds.includes(id)) });
+    } else {
+      set({ selectedWorkstationIds: Array.from(new Set([...current, ...labWsIds])) });
+    }
+  },
+
+  selectAllWorkstations: () => {
+    set({ selectedWorkstationIds: get().workstations.map((w) => w.id) });
+  },
+
+  clearSelectedWorkstations: () => {
+    set({ selectedWorkstationIds: [] });
+  },
 
   wakeOnLanWorkstations: async (ids: number[]) => {
     const res = await api.wakeOnLan(ids);

@@ -5,12 +5,9 @@ import { Workstation } from '../../types';
 import {
   Zap,
   Power,
-  CheckSquare,
-  Square,
   CheckCircle2,
   AlertCircle,
   Monitor,
-  Search,
 } from 'lucide-react';
 
 interface PowerControlModalProps {
@@ -26,97 +23,38 @@ export const PowerControlModal: React.FC<PowerControlModalProps> = ({
   initialMode = 'WAKE',
   targetWorkstation,
 }) => {
-  const { workstations, selectedLab, wakeOnLanWorkstations, shutdownWorkstations } = useLabStore();
+  const {
+    workstations,
+    selectedLab,
+    selectedWorkstationIds,
+    wakeOnLanWorkstations,
+    shutdownWorkstations,
+  } = useLabStore();
 
   const [mode, setMode] = useState<'WAKE' | 'SHUTDOWN'>(initialMode);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [searchFilter, setSearchFilter] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
 
-  // Inisialisasi pilihan perangkat saat modal dibuka atau mode berubah
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
       setFeedback(null);
-      setSearchFilter('');
-
-      if (targetWorkstation) {
-        setSelectedIds([targetWorkstation.id]);
-      } else {
-        if (initialMode === 'WAKE') {
-          // Pre-select semua komputer yang OFFLINE untuk WoL
-          const offlineIds = workstations
-            .filter((w) => w.powerStatus === 'OFFLINE')
-            .map((w) => w.id);
-          setSelectedIds(offlineIds.length > 0 ? offlineIds : workstations.map((w) => w.id));
-        } else {
-          // Pre-select semua komputer yang ONLINE atau IN_SESSION untuk Shutdown
-          const activeIds = workstations
-            .filter((w) => w.powerStatus !== 'OFFLINE')
-            .map((w) => w.id);
-          setSelectedIds(activeIds);
-        }
-      }
     }
-  }, [isOpen, initialMode, targetWorkstation, workstations]);
+  }, [isOpen, initialMode]);
 
-  const handleModeChange = (newMode: 'WAKE' | 'SHUTDOWN') => {
-    setMode(newMode);
-    setFeedback(null);
-    if (!targetWorkstation) {
-      if (newMode === 'WAKE') {
-        const offlineIds = workstations
-          .filter((w) => w.powerStatus === 'OFFLINE')
-          .map((w) => w.id);
-        setSelectedIds(offlineIds.length > 0 ? offlineIds : workstations.map((w) => w.id));
-      } else {
-        const activeIds = workstations
-          .filter((w) => w.powerStatus !== 'OFFLINE')
-          .map((w) => w.id);
-        setSelectedIds(activeIds);
-      }
-    }
-  };
-
-  const toggleSelect = (id: number) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const selectAll = () => {
-    setSelectedIds(workstations.map((w) => w.id));
-  };
-
-  const selectOnlyOffline = () => {
-    setSelectedIds(workstations.filter((w) => w.powerStatus === 'OFFLINE').map((w) => w.id));
-  };
-
-  const selectOnlyOnline = () => {
-    setSelectedIds(workstations.filter((w) => w.powerStatus !== 'OFFLINE').map((w) => w.id));
-  };
-
-  const clearSelection = () => {
-    setSelectedIds([]);
-  };
-
-  const filteredList = workstations.filter((w) => {
-    const q = searchFilter.toLowerCase();
-    return (
-      w.hostname.toLowerCase().includes(q) ||
-      w.ipAddress.includes(q) ||
-      w.macAddress.toLowerCase().includes(q)
-    );
-  });
+  // Gunakan perangkat yang sudah dipilih dari menu samping Ruangan & Komputer
+  const effectiveIds = targetWorkstation
+    ? [targetWorkstation.id]
+    : selectedWorkstationIds;
 
   const handleExecute = async () => {
-    if (selectedIds.length === 0) {
+    if (effectiveIds.length === 0) {
       setFeedback({
         type: 'error',
-        message: 'Silakan pilih setidaknya satu perangkat komputer terlebih dahulu.',
+        message:
+          'Silakan pilih atau centang setidaknya satu komputer melalui menu Ruangan & Komputer di sebelah kiri.',
       });
       return;
     }
@@ -126,22 +64,26 @@ export const PowerControlModal: React.FC<PowerControlModalProps> = ({
 
     try {
       if (mode === 'WAKE') {
-        await wakeOnLanWorkstations(selectedIds);
+        const res = await wakeOnLanWorkstations(effectiveIds);
         setFeedback({
           type: 'success',
-          message: `Berhasil mengirim sinyal Magic Packet Wake-on-LAN ke ${selectedIds.length} komputer.`,
+          message:
+            res.message ||
+            `Sinyal bangun (Magic Packet) berhasil dikirimkan ke ${effectiveIds.length} komputer.`,
         });
       } else {
-        await shutdownWorkstations(selectedIds);
+        const res = await shutdownWorkstations(effectiveIds, false);
         setFeedback({
           type: 'success',
-          message: `Perintah shutdown berhasil dikirim ke ${selectedIds.length} komputer.`,
+          message:
+            res.message ||
+            `Perintah shutdown ACPI berhasil dikirimkan ke ${effectiveIds.length} komputer.`,
         });
       }
     } catch (err: any) {
       setFeedback({
         type: 'error',
-        message: err.message || 'Terjadi kesalahan saat memproses perintah daya.',
+        message: err.message || 'Gagal mengeksekusi operasi manajemen daya.',
       });
     } finally {
       setIsSubmitting(false);
@@ -152,48 +94,56 @@ export const PowerControlModal: React.FC<PowerControlModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Manajemen Daya Komputer (Power Control)"
-      subtitle={`Pilih perangkat dan tindakan daya di ${selectedLab?.labName || 'Laboratorium'}`}
-      maxWidth="2xl"
+      title={
+        targetWorkstation
+          ? `Manajemen Daya: ${targetWorkstation.hostname}`
+          : 'Manajemen Daya Komputer Lab'
+      }
+      subtitle={
+        selectedLab
+          ? `Ruang Lab: ${selectedLab.labName} · Subnet: ${selectedLab.subnetBroadcast}`
+          : undefined
+      }
+      maxWidth="lg"
     >
-      <div className="space-y-5">
-        {/* Tab Pilihan Mode: Nyalakan (WoL) vs Matikan (Shutdown) */}
-        <div className="flex rounded-xl bg-surface-950 p-1 border border-slate-800">
+      <div className="space-y-4">
+        {/* Switch Mode: WoL vs Shutdown */}
+        <div className="grid grid-cols-2 gap-2 p-1 bg-surface-950 rounded-2xl border border-slate-800">
           <button
             type="button"
-            onClick={() => handleModeChange('WAKE')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+            onClick={() => {
+              setMode('WAKE');
+              setFeedback(null);
+            }}
+            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
               mode === 'WAKE'
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-400 hover:text-white hover:bg-surface-850'
             }`}
           >
-            <Zap className={`w-3.5 h-3.5 ${mode === 'WAKE' ? 'text-emerald-400 fill-current' : ''}`} />
-            <span>Nyalakan Komputer (Wake-on-LAN)</span>
+            <Zap className="w-3.5 h-3.5 fill-current" />
+            <span>Nyalakan (WoL)</span>
           </button>
 
           <button
             type="button"
-            onClick={() => handleModeChange('SHUTDOWN')}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+            onClick={() => {
+              setMode('SHUTDOWN');
+              setFeedback(null);
+            }}
+            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
               mode === 'SHUTDOWN'
                 ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-400 hover:text-white hover:bg-surface-850'
             }`}
           >
-            <Power className="w-3.5 h-3.5 text-rose-400" />
-            <span>Matikan Komputer (Shutdown)</span>
+            <Power className="w-3.5 h-3.5" />
+            <span>Matikan (Shutdown)</span>
           </button>
         </div>
 
-        {/* Kotak Info Penjelasan Singkat */}
-        <div
-          className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
-            mode === 'WAKE'
-              ? 'bg-emerald-950/20 border-emerald-500/20 text-emerald-200/90'
-              : 'bg-rose-950/20 border-rose-500/20 text-rose-200/90'
-          }`}
-        >
+        {/* Ringkasan Penjelasan Mode */}
+        <div className="p-3 rounded-xl bg-surface-850/60 border border-slate-800/80 text-xs text-slate-300 flex items-start gap-2.5">
           {mode === 'WAKE' ? (
             <>
               <Zap className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 fill-current" />
@@ -231,123 +181,61 @@ export const PowerControlModal: React.FC<PowerControlModalProps> = ({
           </div>
         )}
 
-        {/* Pemilihan Perangkat Komputer Target */}
-        <div className="space-y-2.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-              <Monitor className="w-3.5 h-3.5 text-brand-400" />
-              <span>Pilih Komputer Target ({selectedIds.length} dari {workstations.length} dipilih):</span>
-            </label>
+        {/* Target Komputer (Dipilih Melalui Menu Ruangan & Komputer) */}
+        <div className="p-3.5 rounded-xl bg-surface-950 border border-slate-800 space-y-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+              <Monitor className="w-4 h-4 text-brand-400" />
+              <span>Target Komputer:</span>
+            </span>
+            <span className="text-teal-400 font-mono font-bold">
+              {targetWorkstation
+                ? '1 Perangkat Dipilih'
+                : `${effectiveIds.length} dari ${workstations.length} Perangkat Terpilih`}
+            </span>
+          </div>
 
-            {/* Tombol Pemilihan Cepat */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={selectAll}
-                className="text-[11px] px-2 py-0.5 rounded bg-surface-850 hover:bg-surface-800 text-slate-300 hover:text-white border border-slate-700 transition-colors"
-              >
-                Pilih Semua
-              </button>
-              {mode === 'WAKE' ? (
-                <button
-                  type="button"
-                  onClick={selectOnlyOffline}
-                  className="text-[11px] px-2 py-0.5 rounded bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 transition-colors"
-                >
-                  Hanya Offline
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={selectOnlyOnline}
-                  className="text-[11px] px-2 py-0.5 rounded bg-teal-950/40 hover:bg-teal-900/60 text-teal-300 border border-teal-500/30 transition-colors"
-                >
-                  Hanya Online
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="text-[11px] px-2 py-0.5 rounded bg-surface-850 hover:bg-surface-800 text-rose-300 border border-slate-700 transition-colors"
-              >
-                Batal
-              </button>
+          {targetWorkstation ? (
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-surface-900 border border-slate-800 text-xs">
+              <span className="font-bold text-white">{targetWorkstation.hostname}</span>
+              <span className="font-mono text-slate-400 text-[11px]">{targetWorkstation.ipAddress}</span>
             </div>
-          </div>
-
-          {/* Kotak Pencarian Perangkat */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Cari host atau IP komputer..."
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              className="w-full bg-surface-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 transition-colors"
-            />
-          </div>
-
-          {/* Daftar Scrollable Perangkat */}
-          <div className="max-h-56 overflow-y-auto space-y-1 rounded-xl bg-surface-950 p-2 border border-slate-800/80">
-            {filteredList.length === 0 ? (
-              <div className="py-6 text-center text-xs text-slate-500">
-                Tidak ada komputer yang cocok dengan pencarian
+          ) : effectiveIds.length === 0 ? (
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+              <span>
+                Belum ada perangkat yang dipilih. Silakan centang komputer pada menu{' '}
+                <strong>Ruangan & Komputer</strong> di sebelah kiri.
+              </span>
+            </div>
+          ) : (
+            <div>
+              <div className="text-[11px] text-slate-400 mb-1.5">
+                Daftar PC yang telah dipilih melalui menu Ruangan & Komputer:
               </div>
-            ) : (
-              filteredList.map((ws) => {
-                const isSelected = selectedIds.includes(ws.id);
-                const isOnline = ws.powerStatus === 'ONLINE';
-                const isInSession = ws.powerStatus === 'IN_SESSION';
-
-                return (
-                  <div
-                    key={ws.id}
-                    onClick={() => toggleSelect(ws.id)}
-                    className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-all border ${
-                      isSelected
-                        ? mode === 'WAKE'
-                          ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
-                          : 'bg-rose-950/30 border-rose-500/40 text-rose-200'
-                        : 'bg-surface-900/60 border-transparent text-slate-300 hover:bg-surface-850 hover:border-slate-750'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      {isSelected ? (
-                        <CheckSquare
-                          className={`w-4 h-4 shrink-0 ${
-                            mode === 'WAKE' ? 'text-emerald-400' : 'text-rose-400'
-                          }`}
-                        />
-                      ) : (
-                        <Square className="w-4 h-4 shrink-0 text-slate-500" />
-                      )}
-                      <div className="truncate">
-                        <span className="font-bold text-white mr-2">{ws.hostname}</span>
-                        <span className="text-[11px] font-mono text-slate-400">{ws.ipAddress}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] font-mono text-slate-500 hidden sm:inline">
-                        {ws.macAddress}
-                      </span>
+              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+                {workstations
+                  .filter((w) => effectiveIds.includes(w.id))
+                  .map((w) => (
+                    <span
+                      key={w.id}
+                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-900 border border-slate-800 text-[11px] font-mono text-slate-200"
+                    >
                       <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                          isOnline
-                            ? 'bg-emerald-500/20 text-emerald-300'
-                            : isInSession
-                            ? 'bg-amber-500/20 text-amber-300'
-                            : 'bg-rose-500/20 text-rose-400'
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          w.powerStatus === 'ONLINE'
+                            ? 'bg-emerald-400 shadow-glow-emerald'
+                            : w.powerStatus === 'IN_SESSION'
+                            ? 'bg-amber-400'
+                            : 'bg-rose-500'
                         }`}
-                      >
-                        {isOnline ? 'Online' : isInSession ? 'Sesi' : 'Offline'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                      />
+                      {w.hostname}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tombol Aksi Bawah */}
@@ -363,7 +251,7 @@ export const PowerControlModal: React.FC<PowerControlModalProps> = ({
           <button
             type="button"
             onClick={handleExecute}
-            disabled={isSubmitting || selectedIds.length === 0}
+            disabled={isSubmitting || effectiveIds.length === 0}
             className={`px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
               mode === 'WAKE'
                 ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
@@ -375,12 +263,12 @@ export const PowerControlModal: React.FC<PowerControlModalProps> = ({
             ) : mode === 'WAKE' ? (
               <>
                 <Zap className="w-3.5 h-3.5 fill-current" />
-                <span>Nyalakan {selectedIds.length} Komputer (WoL)</span>
+                <span>Nyalakan {effectiveIds.length} Komputer (WoL)</span>
               </>
             ) : (
               <>
                 <Power className="w-3.5 h-3.5" />
-                <span>Matikan {selectedIds.length} Komputer (Shutdown)</span>
+                <span>Matikan {effectiveIds.length} Komputer (Shutdown)</span>
               </>
             )}
           </button>

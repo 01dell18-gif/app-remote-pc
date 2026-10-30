@@ -15,8 +15,14 @@ export const ClassroomLockModal: React.FC<ClassroomLockModalProps> = ({
   onClose,
   targetWorkstation,
 }) => {
-  const { workstations, selectedLab, isClassroomLocked, toggleLockClassroom } = useLabStore();
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const {
+    workstations,
+    selectedLab,
+    isClassroomLocked,
+    selectedWorkstationIds,
+    toggleLockClassroom,
+  } = useLabStore();
+
   const [customMsg, setCustomMsg] = useState(
     'Layar Dikunci oleh Dosen/Instruktur. Harap perhatikan penjelasan materi di papan depan!'
   );
@@ -28,28 +34,18 @@ export const ClassroomLockModal: React.FC<ClassroomLockModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setFeedback(null);
-      if (targetWorkstation) {
-        setSelectedIds([targetWorkstation.id]);
-      } else {
-        const activeIds = workstations
-          .filter((w) => w.powerStatus !== 'OFFLINE')
-          .map((w) => w.id);
-        setSelectedIds(activeIds.length > 0 ? activeIds : workstations.map((w) => w.id));
-      }
     }
-  }, [isOpen, targetWorkstation, workstations]);
+  }, [isOpen]);
 
-  const toggleSelect = (id: number) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  const effectiveIds = targetWorkstation
+    ? [targetWorkstation.id]
+    : selectedWorkstationIds;
 
   const handleToggle = async (lock: boolean) => {
-    if (selectedIds.length === 0) {
+    if (effectiveIds.length === 0) {
       setFeedback({
         type: 'error',
-        message: 'Silakan pilih setidaknya satu komputer target terlebih dahulu.',
+        message: 'Silakan pilih atau centang setidaknya satu komputer melalui menu Ruangan & Komputer di sebelah kiri.',
       });
       return;
     }
@@ -61,8 +57,8 @@ export const ClassroomLockModal: React.FC<ClassroomLockModalProps> = ({
       setFeedback({
         type: 'success',
         message: lock
-          ? `Layar dan masukan pada ${selectedIds.length} komputer target berhasil dikunci.`
-          : `Kunci layar pada ${selectedIds.length} komputer target telah dibuka.`,
+          ? `Layar dan masukan pada ${effectiveIds.length} komputer target berhasil dikunci.`
+          : `Kunci layar pada ${effectiveIds.length} komputer target telah dibuka.`,
       });
       setTimeout(() => {
         onClose();
@@ -108,77 +104,61 @@ export const ClassroomLockModal: React.FC<ClassroomLockModalProps> = ({
           </div>
         )}
 
-        {/* Pemilihan Komputer Target */}
-        <div className="p-3 rounded-xl bg-surface-950 border border-slate-800 space-y-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-              <Monitor className="w-3.5 h-3.5 text-amber-400" />
-              <span>Target Komputer ({selectedIds.length} dari {workstations.length} dipilih):</span>
+        {/* Target Komputer (Dipilih Melalui Menu Ruangan & Komputer) */}
+        <div className="p-3.5 rounded-xl bg-surface-950 border border-slate-800 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+              <Monitor className="w-4 h-4 text-amber-400" />
+              <span>Target Komputer:</span>
             </span>
+            <span className="text-teal-400 font-mono font-bold">
+              {targetWorkstation
+                ? '1 Perangkat Dipilih'
+                : `${effectiveIds.length} dari ${workstations.length} Perangkat Terpilih`}
+            </span>
+          </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() =>
-                  setSelectedIds(
-                    workstations.filter((w) => w.powerStatus !== 'OFFLINE').map((w) => w.id)
-                  )
-                }
-                className="text-[10px] px-2 py-0.5 rounded bg-surface-850 hover:bg-surface-800 text-teal-300 border border-teal-500/30 transition-colors"
-              >
-                Pilih Semua Online
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedIds(workstations.map((w) => w.id))}
-                className="text-[10px] px-2 py-0.5 rounded bg-surface-850 hover:bg-surface-800 text-slate-300 border border-slate-700 transition-colors"
-              >
-                Semua Komputer
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedIds([])}
-                className="text-[10px] px-2 py-0.5 rounded bg-surface-850 hover:bg-surface-800 text-rose-300 border border-slate-700 transition-colors"
-              >
-                Batal Pilih
-              </button>
+          {targetWorkstation ? (
+            <div className="flex items-center justify-between p-2 rounded-lg bg-surface-900 border border-slate-800 text-xs">
+              <span className="font-bold text-white">{targetWorkstation.hostname}</span>
+              <span className="font-mono text-slate-400 text-[11px]">{targetWorkstation.ipAddress}</span>
             </div>
-          </div>
-
-          <div className="max-h-32 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 pt-1">
-            {workstations.map((ws) => {
-              const checked = selectedIds.includes(ws.id);
-              const isOnline = ws.powerStatus === 'ONLINE' || ws.powerStatus === 'IN_SESSION';
-
-              return (
-                <div
-                  key={ws.id}
-                  onClick={() => toggleSelect(ws.id)}
-                  className={`flex items-center gap-2 p-2 rounded-lg border text-[11px] cursor-pointer transition-all ${
-                    checked
-                      ? 'bg-amber-950/40 border-amber-500/50 text-amber-200'
-                      : 'bg-surface-900/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => {}}
-                    className="accent-amber-400 rounded w-3.5 h-3.5 pointer-events-none"
-                  />
-                  <div className="truncate flex-1">
-                    <div className="font-bold text-white truncate">{ws.hostname}</div>
-                    <div className="text-[10px] text-slate-400 font-mono truncate">{ws.ipAddress}</div>
-                  </div>
-                  <span
-                    className={`w-2 h-2 rounded-full shrink-0 ${
-                      isOnline ? 'bg-emerald-400' : 'bg-rose-500'
-                    }`}
-                  />
-                </div>
-              );
-            })}
-          </div>
+          ) : effectiveIds.length === 0 ? (
+            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+              <span>
+                Belum ada perangkat yang dipilih. Silakan centang komputer pada menu{' '}
+                <strong>Ruangan & Komputer</strong> di sebelah kiri.
+              </span>
+            </div>
+          ) : (
+            <div>
+              <div className="text-[11px] text-slate-400 mb-1.5">
+                Daftar PC yang telah dipilih melalui menu Ruangan & Komputer:
+              </div>
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                {workstations
+                  .filter((w) => effectiveIds.includes(w.id))
+                  .map((w) => (
+                    <span
+                      key={w.id}
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-900 border border-slate-800 text-[11px] font-mono text-slate-300"
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          w.powerStatus === 'ONLINE'
+                            ? 'bg-emerald-400 shadow-glow-emerald'
+                            : w.powerStatus === 'IN_SESSION'
+                            ? 'bg-amber-400'
+                            : 'bg-rose-500'
+                        }`}
+                      />
+                      {w.hostname}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
@@ -206,22 +186,22 @@ export const ClassroomLockModal: React.FC<ClassroomLockModalProps> = ({
             {isClassroomLocked ? (
               <button
                 type="button"
-                disabled={isSubmitting || selectedIds.length === 0}
+                disabled={isSubmitting || effectiveIds.length === 0}
                 onClick={() => handleToggle(false)}
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-glow-emerald disabled:opacity-50"
               >
                 <Unlock className="w-3.5 h-3.5" />
-                <span>Buka Kunci Layar ({selectedIds.length} PC)</span>
+                <span>Buka Kunci Layar ({effectiveIds.length} PC)</span>
               </button>
             ) : (
               <button
                 type="button"
-                disabled={isSubmitting || selectedIds.length === 0}
+                disabled={isSubmitting || effectiveIds.length === 0}
                 onClick={() => handleToggle(true)}
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1.5 shadow-glow-amber disabled:opacity-50"
               >
                 <Lock className="w-3.5 h-3.5" />
-                <span>Kunci Sekarang ({selectedIds.length} PC)</span>
+                <span>Kunci Sekarang ({effectiveIds.length} PC)</span>
               </button>
             )}
           </div>

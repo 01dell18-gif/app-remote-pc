@@ -35,6 +35,11 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
     selectedLab,
     selectLab,
     workstations,
+    selectedWorkstationIds,
+    toggleSelectWorkstation,
+    toggleSelectLabWorkstations,
+    selectAllWorkstations,
+    clearSelectedWorkstations,
     setActiveRemoteSession,
   } = useLabStore();
 
@@ -42,7 +47,6 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
 
   // State ekspansi per lab (default lab aktif terbuka)
   const [expandedLabIds, setExpandedLabIds] = useState<number[]>([1, 2]);
-  const [checkedIds, setCheckedIds] = useState<number[]>([]);
   const [filterQuery, setFilterQuery] = useState('');
 
   const toggleExpand = (labId: number, e: React.MouseEvent) => {
@@ -50,26 +54,6 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
     setExpandedLabIds((prev) =>
       prev.includes(labId) ? prev.filter((id) => id !== labId) : [...prev, labId]
     );
-  };
-
-  const toggleCheck = (id: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCheckedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  // Toggle checklist seluruh workstation dalam satu lab
-  const toggleCheckLab = (labWorkstations: Workstation[], e: React.MouseEvent) => {
-    e.stopPropagation();
-    const labWsIds = labWorkstations.map((w) => w.id);
-    const allChecked = labWsIds.every((id) => checkedIds.includes(id));
-
-    if (allChecked) {
-      setCheckedIds((prev) => prev.filter((id) => !labWsIds.includes(id)));
-    } else {
-      setCheckedIds((prev) => Array.from(new Set([...prev, ...labWsIds])));
-    }
   };
 
   // Hitung total komputer di seluruh lab
@@ -144,6 +128,30 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
         </div>
       </div>
 
+      {/* Baris Status & Aksi Pemilihan Cepat Perangkat Terpilih */}
+      <div className="px-3 py-1.5 bg-surface-950/80 border-b border-slate-800/80 flex items-center justify-between text-[11px] shrink-0">
+        <span className="text-slate-400">
+          Target: <strong className="text-teal-400 font-mono font-bold">{selectedWorkstationIds.length}</strong> PC Terpilih
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={selectAllWorkstations}
+            className="text-[10px] text-teal-400 hover:text-teal-300 hover:underline font-semibold"
+          >
+            Pilih Semua
+          </button>
+          <span className="text-slate-600">·</span>
+          <button
+            type="button"
+            onClick={clearSelectedWorkstations}
+            className="text-[10px] text-rose-400 hover:text-rose-300 hover:underline font-semibold"
+          >
+            Batal
+          </button>
+        </div>
+      </div>
+
       {/* Tree View Ruangan & Komputer (Persis Model Veyon) */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1 text-xs">
         {labs.length === 0 ? (
@@ -173,8 +181,8 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
 
             // Status centang lab
             const labWsIds = labComputers.map((w) => w.id);
-            const allChecked = labWsIds.length > 0 && labWsIds.every((id) => checkedIds.includes(id));
-            const someChecked = labWsIds.some((id) => checkedIds.includes(id)) && !allChecked;
+            const allChecked = labWsIds.length > 0 && labWsIds.every((id) => selectedWorkstationIds.includes(id));
+            const someChecked = labWsIds.some((id) => selectedWorkstationIds.includes(id)) && !allChecked;
 
             return (
               <div key={lab.id} className="rounded-xl overflow-hidden transition-colors">
@@ -203,7 +211,10 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
 
                     {/* Checkbox Lab */}
                     <div
-                      onClick={(e) => toggleCheckLab(labComputers, e)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelectLabWorkstations(labComputers);
+                      }}
                       className="cursor-pointer text-slate-400 hover:text-white shrink-0"
                     >
                       {allChecked ? (
@@ -243,7 +254,7 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
                       </div>
                     ) : (
                       filteredComputers.map((ws) => {
-                        const isChecked = checkedIds.includes(ws.id);
+                        const isChecked = selectedWorkstationIds.includes(ws.id);
                         const isOnline = ws.powerStatus === 'ONLINE';
                         const isInSession = ws.powerStatus === 'IN_SESSION';
 
@@ -262,7 +273,10 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
                             <div className="flex items-center gap-2 truncate">
                               {/* Checkbox Workstation */}
                               <div
-                                onClick={(e) => toggleCheck(ws.id, e)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelectWorkstation(ws.id);
+                                }}
                                 className="cursor-pointer text-slate-500 group-hover:text-slate-300 shrink-0"
                               >
                                 {isChecked ? (
