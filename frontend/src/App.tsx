@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuthStore } from './stores/authStore';
 import { useLabStore } from './stores/labStore';
 import { Navbar } from './components/common/Navbar';
+import { VeyonSidebar } from './components/dashboard/VeyonSidebar';
 import { LabGrid } from './components/dashboard/LabGrid';
 import { AddWorkstationModal } from './components/dashboard/AddWorkstationModal';
 import { ClassroomLockModal } from './components/dashboard/ClassroomLockModal';
@@ -29,6 +30,7 @@ export const App: React.FC = () => {
     selectedLab,
   } = useLabStore();
 
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [lockModalOpen, setLockModalOpen] = useState(false);
@@ -94,9 +96,11 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-surface-950 text-slate-100 flex flex-col">
+    <div className="h-screen bg-surface-950 text-slate-100 flex flex-col overflow-hidden">
       {/* Top Navigation */}
       <Navbar
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         onOpenAddModal={() => {
           setWorkstationToEdit(null);
           setAddModalOpen(true);
@@ -112,7 +116,7 @@ export const App: React.FC = () => {
 
       {/* Classroom Lock Banner jika aktif */}
       {isClassroomLocked && (
-        <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex items-center justify-center gap-2 text-xs font-semibold text-amber-300">
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 flex items-center justify-center gap-2 text-xs font-semibold text-amber-300 shrink-0">
           <Lock className="w-3.5 h-3.5" />
           <span>
             STATUS LAB TERKUNCI: {lockMessage || 'Seluruh input siswa dinonaktifkan'}
@@ -120,41 +124,51 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-[1700px] w-full mx-auto px-4 lg:px-6 py-6 space-y-6">
-        {/* Lab Header Info */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-black text-white tracking-tight">
-                {selectedLab?.labName || 'Memuat Laboratorium...'}
-              </h1>
-              <button
-                onClick={() => setManageLabsModalOpen(true)}
-                className="text-xs px-2.5 py-1 rounded-lg bg-surface-850 hover:bg-surface-800 text-brand-400 border border-brand-500/20 font-medium transition-colors"
-              >
-                Kelola Lab
-              </button>
-            </div>
-            <p className="text-xs text-slate-400 mt-1 font-mono">
-              Subnet Siaran WoL: <span className="text-teal-400 font-semibold">{selectedLab?.subnetBroadcast}</span> · Kapasitas: {selectedLab?.totalCapacity} Meja Komputer
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Sinkronisasi Otomatis Tiap 5 Detik</span>
-          </div>
-        </div>
-
-        {/* Spatial Lab Desk Grid */}
-        <LabGrid
-          onEditWorkstation={handleEditWorkstation}
-          onDeleteWorkstation={handleDeleteWorkstation}
-          onOpenAppManager={handleOpenAppManager}
-          onOpenRestrictionManager={handleOpenRestrictionModal}
+      {/* Workspace Flex Layout: Veyon Sidebar Kiri + Main Area Kanan */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar Pohon Ruangan & Komputer (Model Veyon) */}
+        <VeyonSidebar
+          isOpen={sidebarOpen}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+          onOpenManageLabs={() => setManageLabsModalOpen(true)}
         />
-      </main>
+
+        {/* Main Canvas Area */}
+        <main className="flex-1 overflow-y-auto px-4 lg:px-6 py-5 space-y-5">
+          {/* Lab Header Info */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-black text-white tracking-tight">
+                  {selectedLab?.labName || 'Memuat Laboratorium...'}
+                </h1>
+                <button
+                  onClick={() => setManageLabsModalOpen(true)}
+                  className="text-xs px-2.5 py-1 rounded-lg bg-surface-850 hover:bg-surface-800 text-brand-400 border border-brand-500/20 font-medium transition-colors"
+                >
+                  Kelola Lab
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-1 font-mono">
+                Subnet Siaran WoL: <span className="text-teal-400 font-semibold">{selectedLab?.subnetBroadcast}</span> · Kapasitas: {selectedLab?.totalCapacity} Meja Komputer
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Sinkronisasi Otomatis Tiap 5 Detik</span>
+            </div>
+          </div>
+
+          {/* Spatial Lab Desk Grid */}
+          <LabGrid
+            onEditWorkstation={handleEditWorkstation}
+            onDeleteWorkstation={handleDeleteWorkstation}
+            onOpenAppManager={handleOpenAppManager}
+            onOpenRestrictionManager={handleOpenRestrictionModal}
+          />
+        </main>
+      </div>
 
       {/* Modals */}
       <AddWorkstationModal

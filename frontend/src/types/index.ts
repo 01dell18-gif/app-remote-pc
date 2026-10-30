@@ -21,6 +21,7 @@ export interface Laboratory {
   _count?: {
     workstations: number;
   };
+  workstations?: Workstation[];
 }
 
 export interface Workstation {

@@ -51,28 +51,13 @@ export const LabGrid: React.FC<LabGridProps> = ({
     });
   }, [workstations, searchQuery, statusFilter]);
 
-  // Kelompokkan workstation berdasarkan Baris (Row) untuk denah spasial lab
-  const rows = useMemo(() => {
-    const map = new Map<number, Workstation[]>();
-    for (const ws of filteredWorkstations) {
-      const row = ws.gridRow || 1;
-      if (!map.has(row)) map.set(row, []);
-      map.get(row)!.push(ws);
-    }
-    // Sort columns dalam tiap row
-    for (const [_, list] of map.entries()) {
-      list.sort((a, b) => a.gridColumn - b.gridColumn);
-    }
-    return Array.from(map.entries()).sort((a, b) => a[0] - b[0]);
-  }, [filteredWorkstations]);
-
   // Kolom grid CSS responsif berdasarkan ukuran kartu
   const getGridColsClass = () => {
     switch (cardSize) {
       case 'small':
         return 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3';
       case 'large':
-        return 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6';
+        return 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-5';
       case 'medium':
       default:
         return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4';
@@ -80,7 +65,7 @@ export const LabGrid: React.FC<LabGridProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Filter, Search, and View Size Bar */}
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-surface-900/80 p-3 rounded-2xl border border-slate-800 shadow-sm">
         {/* Search Input */}
@@ -132,7 +117,7 @@ export const LabGrid: React.FC<LabGridProps> = ({
         </div>
       </div>
 
-      {/* Grid Display */}
+      {/* Grid Display: Aliran Fleksibel Tanpa Sekat Baris */}
       {filteredWorkstations.length === 0 ? (
         <div className="glass-panel rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-3">
           <div className="p-3.5 rounded-2xl bg-slate-800/60 text-slate-400">
@@ -146,36 +131,17 @@ export const LabGrid: React.FC<LabGridProps> = ({
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {rows.map(([rowNum, rowWorkstations]) => (
-            <div key={rowNum} className="space-y-3">
-              {/* Row Header Label */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-850 border border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                  <LayoutGrid className="w-3.5 h-3.5 text-brand-400" />
-                  <span>Baris Meja {rowNum}</span>
-                </div>
-                <div className="flex-1 h-[1px] bg-slate-800/80" />
-                <span className="text-[11px] text-slate-400">
-                  {rowWorkstations.length} Komputer
-                </span>
-              </div>
-
-              {/* Workstation cards grid in this row with dynamic columns */}
-              <div className={getGridColsClass()}>
-                {rowWorkstations.map((ws) => (
-                  <WorkstationCard
-                    key={ws.id}
-                    workstation={ws}
-                    onEdit={onEditWorkstation}
-                    onDelete={onDeleteWorkstation}
-                    onOpenAppManager={onOpenAppManager}
-                    onOpenRestrictionManager={onOpenRestrictionManager}
-                    size={cardSize}
-                  />
-                ))}
-              </div>
-            </div>
+        <div className={getGridColsClass()}>
+          {filteredWorkstations.map((ws) => (
+            <WorkstationCard
+              key={ws.id}
+              workstation={ws}
+              onEdit={onEditWorkstation}
+              onDelete={onDeleteWorkstation}
+              onOpenAppManager={onOpenAppManager}
+              onOpenRestrictionManager={onOpenRestrictionManager}
+              size={cardSize}
+            />
           ))}
         </div>
       )}

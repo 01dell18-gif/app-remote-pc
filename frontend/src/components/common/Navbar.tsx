@@ -10,15 +10,17 @@ import {
   ChevronDown,
   Layers,
   Shield,
-  Settings2,
   Terminal,
   Ban,
   FileSpreadsheet,
+  PanelLeft,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useLabStore } from '../../stores/labStore';
 
 interface NavbarProps {
+  sidebarOpen: boolean;
+  onToggleSidebar: () => void;
   onOpenAddModal: () => void;
   onOpenAuditModal: () => void;
   onOpenLockModal: () => void;
@@ -30,6 +32,8 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
+  sidebarOpen,
+  onToggleSidebar,
   onOpenAddModal,
   onOpenAuditModal,
   onOpenLockModal,
@@ -41,14 +45,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { user, logout } = useAuthStore();
   const {
-    labs,
     selectedLab,
-    selectLab,
     workstations,
     isClassroomLocked,
   } = useLabStore();
 
-  const [labDropdownOpen, setLabDropdownOpen] = useState(false);
   const [powerDropdownOpen, setPowerDropdownOpen] = useState(false);
 
   const onlineCount = workstations.filter((w) => w.powerStatus === 'ONLINE').length;
@@ -60,24 +61,37 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 w-full bg-surface-900/95 backdrop-blur-md border-b border-slate-800/80 shadow-xl">
-      <div className="max-w-[1700px] mx-auto px-4 lg:px-6 h-16 flex items-center justify-between gap-3">
-        {/* Sisi Kiri: Brand Logo & Pemilih Lab */}
-        <div className="flex items-center gap-4 min-w-0">
+      <div className="max-w-[1700px] mx-auto px-4 lg:px-6 h-16 flex items-center justify-between gap-4">
+        {/* Sisi Kiri: Toggle Sidebar, Brand Logo & Active Lab Badge */}
+        <div className="flex items-center gap-3.5 min-w-0">
+          {/* Tombol Toggle Sidebar Veyon */}
+          <button
+            onClick={onToggleSidebar}
+            title={sidebarOpen ? 'Sembunyikan Panel Ruangan' : 'Tampilkan Panel Ruangan & Komputer (Veyon)'}
+            className={`p-2 rounded-xl transition-all border shrink-0 ${
+              sidebarOpen
+                ? 'bg-brand-500/15 text-brand-300 border-brand-500/30 shadow-sm'
+                : 'bg-surface-850 hover:bg-surface-800 text-slate-300 border-slate-700/80 hover:text-white'
+            }`}
+          >
+            <PanelLeft className="w-4 h-4" />
+          </button>
+
           {/* Brand Logo */}
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-glow-teal text-slate-950">
-              <Monitor className="w-5 h-5 stroke-[2.5]" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-glow-teal text-slate-950">
+              <Monitor className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-white text-base tracking-tight whitespace-nowrap">
+                <span className="font-extrabold text-white text-sm sm:text-base tracking-tight whitespace-nowrap">
                   FYJ Channel <span className="text-brand-400">Remote</span>
                 </span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-brand-500/10 text-brand-400 border border-brand-500/20 whitespace-nowrap hidden sm:inline-block">
                   LAN GATEWAY
                 </span>
               </div>
-              <span className="text-[11px] text-slate-400 whitespace-nowrap hidden lg:block">
+              <span className="text-[10px] text-slate-400 whitespace-nowrap hidden lg:block">
                 Sistem Kendali & Pemantauan Lab Komputer
               </span>
             </div>
@@ -85,96 +99,32 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <div className="h-6 w-[1px] bg-slate-800 hidden md:block shrink-0" />
 
-          {/* Pemilih Lab Custom (Dropdown Modern) */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setLabDropdownOpen(!labDropdownOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-850 hover:bg-surface-800 border border-slate-700/80 text-xs font-semibold text-white transition-all shadow-sm"
-            >
-              <Layers className="w-3.5 h-3.5 text-brand-400" />
-              <span className="max-w-[160px] sm:max-w-[220px] truncate text-left">
-                {selectedLab ? selectedLab.labName : 'Pilih Laboratorium'}
-              </span>
-              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${labDropdownOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {labDropdownOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-20"
-                  onClick={() => setLabDropdownOpen(false)}
-                />
-                <div className="absolute left-0 mt-2 w-72 rounded-2xl bg-surface-850 border border-slate-700 shadow-2xl p-2 z-30 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-2 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                    <span>Ruangan Lab Tersedia</span>
-                    <span className="text-teal-400 font-mono">{labs.length} Lab</span>
-                  </div>
-
-                  <div className="space-y-1 max-h-56 overflow-y-auto my-1">
-                    {labs.map((lab) => {
-                      const active = selectedLab?.id === lab.id;
-                      return (
-                        <button
-                          key={lab.id}
-                          onClick={() => {
-                            selectLab(lab.id);
-                            setLabDropdownOpen(false);
-                          }}
-                          className={`w-full text-left px-3 py-2 rounded-xl text-xs transition-colors flex items-center justify-between ${
-                            active
-                              ? 'bg-brand-500/20 text-brand-300 font-bold border border-brand-500/30'
-                              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                          }`}
-                        >
-                          <div className="truncate mr-2">
-                            <div className="truncate">{lab.labName}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">
-                              Subnet: {lab.subnetBroadcast}
-                            </div>
-                          </div>
-                          {active && <span className="w-2 h-2 rounded-full bg-brand-400 shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {isAdmin && (
-                    <div className="pt-2 border-t border-slate-800 mt-1">
-                      <button
-                        onClick={() => {
-                          setLabDropdownOpen(false);
-                          onOpenManageLabsModal();
-                        }}
-                        className="w-full px-3 py-2 rounded-xl text-xs font-semibold text-brand-400 hover:bg-brand-500/10 flex items-center justify-center gap-1.5 transition-colors border border-brand-500/20"
-                      >
-                        <Settings2 className="w-3.5 h-3.5" />
-                        <span>Kelola / Tambah Ruang Lab</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
+          {/* Indikator Lab Aktif yang Rapi (Tanpa dropdown berdempetan) */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-850/90 border border-slate-800 text-xs shadow-sm min-w-0">
+            <Layers className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+            <span className="font-semibold text-slate-200 truncate max-w-[160px] md:max-w-[220px]" title={selectedLab?.labName}>
+              {selectedLab ? selectedLab.labName : 'Pilih Laboratorium'}
+            </span>
           </div>
         </div>
 
-        {/* Ringkasan Metrik Cepat */}
-        <div className="hidden xl:flex items-center gap-3 px-3 py-1.5 rounded-xl bg-surface-850/80 border border-slate-800 text-xs">
+        {/* Ringkasan Metrik Cepat - Diberi ruang lapang & terpisah */}
+        <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 rounded-xl bg-surface-850/80 border border-slate-800/90 text-xs shrink-0 shadow-sm">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-glow-emerald" />
-            <span className="text-white font-bold">{onlineCount}</span>
+            <span className="text-white font-bold font-mono">{onlineCount}</span>
             <span className="text-slate-400">Online</span>
           </div>
           <div className="w-[1px] h-3.5 bg-slate-800" />
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-amber-400 shadow-glow-amber" />
-            <span className="text-white font-bold">{inSessionCount}</span>
+            <span className="text-white font-bold font-mono">{inSessionCount}</span>
             <span className="text-slate-400">Sesi</span>
           </div>
           <div className="w-[1px] h-3.5 bg-slate-800" />
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-rose-500 shadow-glow-rose" />
-            <span className="text-white font-bold">{offlineCount}</span>
+            <span className="text-white font-bold font-mono">{offlineCount}</span>
             <span className="text-slate-400">Offline</span>
           </div>
         </div>
@@ -347,6 +297,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                             </p>
                           </div>
                         </button>
+
+                        {/* Opsi 6: Kelola & Tambah Ruang Lab */}
+                        {isAdmin && (
+                          <button
+                            onClick={() => {
+                              setPowerDropdownOpen(false);
+                              onOpenManageLabsModal();
+                            }}
+                            className="w-full text-left p-2 rounded-xl hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-all flex items-start gap-2.5 group"
+                          >
+                            <div className="p-2 rounded-lg bg-brand-500/10 text-brand-400 border border-brand-500/20 group-hover:scale-110 transition-transform shrink-0 mt-0.5">
+                              <Layers className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-white group-hover:text-brand-300">
+                                  Kelola Ruangan Lab
+                                </span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-500/20 text-brand-300 font-semibold font-mono">
+                                  Setup
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                                Tambah ruang lab baru, subnet siaran WoL, & ubah kapasitas kursi.
+                              </p>
+                            </div>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </>

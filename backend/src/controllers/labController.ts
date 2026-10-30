@@ -11,6 +11,9 @@ export class LabController {
           _count: {
             select: { workstations: true },
           },
+          workstations: {
+            orderBy: [{ gridRow: 'asc' }, { gridColumn: 'asc' }],
+          },
         },
         orderBy: { id: 'asc' },
       });
