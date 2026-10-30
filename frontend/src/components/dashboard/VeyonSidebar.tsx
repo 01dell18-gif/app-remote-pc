@@ -14,12 +14,14 @@ import {
   PanelLeftClose,
   DoorOpen,
   ExternalLink,
+  Plus,
 } from 'lucide-react';
 
 interface VeyonSidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   onOpenManageLabs: () => void;
+  onOpenAddWorkstation?: () => void;
   onSelectWorkstation?: (ws: Workstation) => void;
 }
 
@@ -27,6 +29,7 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
   isOpen,
   onToggle,
   onOpenManageLabs,
+  onOpenAddWorkstation,
   onSelectWorkstation,
 }) => {
   const { user } = useAuthStore();
@@ -63,7 +66,7 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
 
   if (!isOpen) {
     return (
-      <div className="hidden lg:flex flex-col items-center py-4 px-2 bg-surface-900 border-r border-slate-800 shrink-0 w-12 z-20 h-full">
+      <div className="hidden lg:flex flex-col items-center py-4 px-2 bg-surface-900 border-r border-slate-800 shrink-0 w-12 z-20 h-full gap-2.5">
         <button
           onClick={onToggle}
           title="Buka Panel Ruangan & Komputer (Veyon Sidebar)"
@@ -71,6 +74,15 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
         >
           <Layers className="w-4 h-4" />
         </button>
+        {isAdmin && onOpenAddWorkstation && (
+          <button
+            onClick={onOpenAddWorkstation}
+            title="Tambah PC Baru"
+            className="p-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white transition-all hover:scale-105 shadow-glow-teal"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+          </button>
+        )}
       </div>
     );
   }
@@ -94,6 +106,16 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
         </div>
 
         <div className="flex items-center gap-1">
+          {isAdmin && onOpenAddWorkstation && (
+            <button
+              onClick={onOpenAddWorkstation}
+              title="Tambah PC Baru"
+              className="p-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition-colors flex items-center justify-center shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            </button>
+          )}
+
           {isAdmin && (
             <button
               onClick={onOpenManageLabs}
@@ -113,6 +135,20 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Tombol Tambah PC Baru di Menu Kiri */}
+      {isAdmin && onOpenAddWorkstation && (
+        <div className="p-2.5 pb-0 shrink-0">
+          <button
+            type="button"
+            onClick={onOpenAddWorkstation}
+            className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white shadow-glow-teal transition-all hover:scale-[1.01] active:scale-[0.99]"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Tambah PC</span>
+          </button>
+        </div>
+      )}
 
       {/* Kotak Filter Pencarian Cepat di Sidebar */}
       <div className="p-2.5 border-b border-slate-800/80 shrink-0">

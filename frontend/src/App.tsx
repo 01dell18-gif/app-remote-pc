@@ -101,10 +101,6 @@ export const App: React.FC = () => {
       <Navbar
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        onOpenAddModal={() => {
-          setWorkstationToEdit(null);
-          setAddModalOpen(true);
-        }}
         onOpenAuditModal={() => setAuditModalOpen(true)}
         onOpenLockModal={() => setLockModalOpen(true)}
         onOpenManageLabsModal={() => setManageLabsModalOpen(true)}
@@ -131,6 +127,10 @@ export const App: React.FC = () => {
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
           onOpenManageLabs={() => setManageLabsModalOpen(true)}
+          onOpenAddWorkstation={() => {
+            setWorkstationToEdit(null);
+            setAddModalOpen(true);
+          }}
         />
 
         {/* Main Canvas Area */}

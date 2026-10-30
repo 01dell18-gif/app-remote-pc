@@ -4,7 +4,6 @@ import {
   Zap,
   Power,
   Lock,
-  Plus,
   History,
   LogOut,
   ChevronDown,
@@ -21,7 +20,6 @@ import { useLabStore } from '../../stores/labStore';
 interface NavbarProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
-  onOpenAddModal: () => void;
   onOpenAuditModal: () => void;
   onOpenLockModal: () => void;
   onOpenManageLabsModal: () => void;
@@ -34,7 +32,6 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   sidebarOpen,
   onToggleSidebar,
-  onOpenAddModal,
   onOpenAuditModal,
   onOpenLockModal,
   onOpenManageLabsModal,
@@ -45,7 +42,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { user, logout } = useAuthStore();
   const {
-    selectedLab,
     workstations,
     isClassroomLocked,
   } = useLabStore();
@@ -95,16 +91,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Sistem Kendali & Pemantauan Lab Komputer
               </span>
             </div>
-          </div>
-
-          <div className="h-6 w-[1px] bg-slate-800 hidden md:block shrink-0" />
-
-          {/* Indikator Lab Aktif yang Rapi (Tanpa dropdown berdempetan) */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-850/90 border border-slate-800 text-xs shadow-sm min-w-0">
-            <Layers className="w-3.5 h-3.5 text-brand-400 shrink-0" />
-            <span className="font-semibold text-slate-200 truncate max-w-[160px] md:max-w-[220px]" title={selectedLab?.labName}>
-              {selectedLab ? selectedLab.labName : 'Pilih Laboratorium'}
-            </span>
           </div>
         </div>
 
@@ -340,17 +326,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-teal-400" />
                   <span>Impor / Ekspor</span>
-                </button>
-              )}
-
-              {/* Tombol Tambah Komputer */}
-              {isAdmin && (
-                <button
-                  onClick={onOpenAddModal}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-brand-600 hover:bg-brand-500 text-white shadow-glow-teal transition-all hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
-                  <span>Tambah PC</span>
                 </button>
               )}
             </div>
