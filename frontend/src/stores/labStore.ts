@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { Laboratory, Workstation, RemoteSessionInfo } from '../types';
 import { api } from '../services/api';
 
+export type CardSize = 'small' | 'medium' | 'large';
+
 interface LabState {
   labs: Laboratory[];
   selectedLab: Laboratory | null;
@@ -12,13 +14,18 @@ interface LabState {
   isLoading: boolean;
   searchQuery: string;
   statusFilter: 'ALL' | 'ONLINE' | 'OFFLINE' | 'IN_SESSION';
+  cardSize: CardSize;
 
   // Actions
   fetchLabs: () => Promise<void>;
   selectLab: (labId: number) => Promise<void>;
+  createLab: (data: { labName: string; subnetBroadcast: string; totalCapacity?: number }) => Promise<void>;
+  updateLab: (id: number, data: { labName?: string; subnetBroadcast?: string; totalCapacity?: number }) => Promise<void>;
+  deleteLab: (id: number) => Promise<void>;
   fetchWorkstations: () => Promise<void>;
   setSearchQuery: (query: string) => void;
   setStatusFilter: (filter: 'ALL' | 'ONLINE' | 'OFFLINE' | 'IN_SESSION') => void;
+  setCardSize: (size: CardSize) => void;
   setActiveRemoteSession: (session: RemoteSessionInfo | null) => void;
   
   // Power Actions
@@ -41,13 +48,19 @@ export const useLabStore = create<LabState>((set, get) => ({
   isLoading: false,
   searchQuery: '',
   statusFilter: 'ALL',
+  cardSize: 'medium',
 
   fetchLabs: async () => {
     try {
       const res = await api.getLabs();
       set({ labs: res.labs });
-      if (res.labs.length > 0 && !get().selectedLab) {
-        get().selectLab(res.labs[0].id);
+      const current = get().selectedLab;
+      if (res.labs.length > 0) {
+        if (!current || !res.labs.some((l) => l.id === current.id)) {
+          get().selectLab(res.labs[0].id);
+        }
+      } else {
+        set({ selectedLab: null, workstations: [] });
       }
     } catch (err) {
       console.error('Gagal mengambil daftar lab:', err);
@@ -70,6 +83,27 @@ export const useLabStore = create<LabState>((set, get) => ({
     }
   },
 
+  createLab: async (data) => {
+    const res = await api.createLab(data);
+    await get().fetchLabs();
+    if (res.lab) {
+      await get().selectLab(res.lab.id);
+    }
+  },
+
+  updateLab: async (id, data) => {
+    await api.updateLab(id, data);
+    await get().fetchLabs();
+    if (get().selectedLab?.id === id) {
+      await get().selectLab(id);
+    }
+  },
+
+  deleteLab: async (id) => {
+    await api.deleteLab(id);
+    await get().fetchLabs();
+  },
+
   fetchWorkstations: async () => {
     const currentLab = get().selectedLab;
     if (!currentLab) return;
@@ -83,11 +117,11 @@ export const useLabStore = create<LabState>((set, get) => ({
 
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setStatusFilter: (statusFilter) => set({ statusFilter }),
+  setCardSize: (cardSize) => set({ cardSize }),
   setActiveRemoteSession: (activeRemoteSession) => set({ activeRemoteSession }),
 
   wakeOnLanWorkstations: async (ids: number[]) => {
     const res = await api.wakeOnLan(ids);
-    // Segera refresh workstations
     await get().fetchWorkstations();
     return res;
   },

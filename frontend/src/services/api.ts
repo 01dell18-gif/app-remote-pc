@@ -62,6 +62,23 @@ export const api = {
     return handleResponse(res);
   },
 
+  async updateLab(id: number, data: { labName?: string; subnetBroadcast?: string; totalCapacity?: number }): Promise<{ success: boolean; lab: Laboratory }> {
+    const res = await fetch(`${API_BASE}/labs/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+  },
+
+  async deleteLab(id: number): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/labs/${id}`, {
+      method: 'DELETE',
+      headers: { ...getAuthHeader() },
+    });
+    return handleResponse(res);
+  },
+
   // Workstations
   async createWorkstation(data: Partial<Workstation>): Promise<{ success: boolean; workstation: Workstation }> {
     const res = await fetch(`${API_BASE}/workstations`, {

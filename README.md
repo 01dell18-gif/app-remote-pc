@@ -19,8 +19,9 @@
 3. [Tumpukan Teknologi (Tech Stack)](#3-tumpukan-teknologi-tech-stack)
 4. [Struktur Direktori Repositori](#4-struktur-direktori-repositori)
 5. [Panduan Menjalankan Sistem](#5-panduan-menjalankan-sistem)
-   - [Opsi A: Mode Cepat (Zero-Config SQLite)](#opsi-a-mode-cepat-zero-config-sqlite)
-   - [Opsi B: Mode Kontainer Docker Penuh (guacd + PostgreSQL)](#opsi-b-mode-kontainer-docker-penuh-guacd--postgresql)
+   - [Opsi 1: Menjalankan dengan 1-Klik (.BAT)](#opsi-1-menjalankan-dengan-1-klik-bat--rekomendasi-di-windows)
+   - [Opsi 2: Mode Manual (Zero-Config SQLite)](#opsi-2-mode-manual-zero-config-sqlite)
+   - [Opsi 3: Mode Kontainer Docker Penuh (guacd + PostgreSQL)](#opsi-3-mode-kontainer-docker-penuh-guacd--postgresql)
 6. [Akun Bawaan (Default Credentials)](#6-akun-bawaan-default-credentials)
 7. [Spesifikasi API Endpoint & Protokol](#7-spesifikasi-api-endpoint--protokol)
 8. [Simulasi Mock Lab (Testing Tanpa Fisik PC)](#8-simulasi-mock-lab-testing-tanpa-fisik-pc)
@@ -31,7 +32,7 @@
 
 Sistem **FYJ Channel Remote** dirancang untuk mengatasi friksi pemeliharaan software konvensional dengan menghadirkan gerbang kendali jarak jauh berbasis web tanpa instalasi klien (*clientless web-based remote gateway*).
 
-```
+```text
 +-------------------------------------------------------------+
 |        Peramban Web Instruktur / Dosen (HTML5 Canvas)       |
 |    - Dasbor Matriks Multi-Layar (Spatial Grid View 1-2 FPS) |
@@ -79,9 +80,12 @@ Sistem **FYJ Channel Remote** dirancang untuk mengatasi friksi pemeliharaan soft
   - Pematian dan mulai ulang sistem operasi secara tertib (*graceful shutdown*) dengan pencatatan jejak audit.
 - 🏫 **Dasbor Matriks Pemantauan Kelas (Classroom Spatial Grid View)**:
   - Tata letak meja baris dan kolom yang mencerminkan denah fisik ruang lab.
-  - Kartu workstation dengan kanvas miniatur mini-screen yang memperbarui tampilan tiap 1–2 detik secara adaptif.
+  - Kartu workstation dengan kanvas miniatur mini-screen yang memperbarui visual layar tiap 1–2 detik secara adaptif.
   - Indikator LED pendar: **Hijau = Online**, **Kuning = Dalam Sesi**, **Merah = Offline**.
+  - Pilihan ukuran tampilan visual: **Kecil (Compact Grid)**, **Sedang (Default)**, dan **Besar (HD Visual)**.
   - Menu konteks terintegrasi (*Context Menu*) untuk eksekusi langsung.
+- 🏢 **Manajemen Ruang Laboratorium Dinamis**:
+  - Tambah, sunting, dan hapus ruang laboratorium secara mandiri.
 - 🔒 **Kontrol Kelas (Classroom Lock & Banner)**:
   - Mengunci periferal mouse dan keyboard komputer siswa dari jarak jauh dan menampilkan banner informasi instruktur saat sesi materi berlangsung.
 - 🛡️ **Keamanan & Tata Kelola Akses (RBAC & Audit Trail)**:
@@ -108,7 +112,7 @@ Sistem **FYJ Channel Remote** dirancang untuk mengatasi friksi pemeliharaan soft
 
 ## 4. Struktur Direktori Repositori
 
-```
+```text
 App-RemotePC/
 ├── docker/
 │   └── docker-compose.yml        # Konfigurasi orkestrasi guacd, PostgreSQL, dan noVNC mock
@@ -135,8 +139,8 @@ App-RemotePC/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── common/           # Navbar, Modal, StatusIndicator
-│   │   │   ├── dashboard/        # LabGrid, WorkstationCard, AddWorkstationModal, AuditLogsModal
-│   │   │   ├── remote/           # RemoteViewport, FloatingToolbar, ClipboardModal
+│   │   │   ├── dashboard/        # LabGrid, WorkstationCard, AddWorkstationModal, ManageLabsModal
+│   │   │   ├── remote/           # RemoteViewport (HTML5 Canvas), FloatingToolbar, ClipboardModal
 │   │   │   └── auth/             # LoginModal
 │   │   ├── services/             # API client RESTful
 │   │   ├── stores/               # Zustand stores (authStore, labStore)
@@ -148,6 +152,9 @@ App-RemotePC/
 │   ├── package.json
 │   ├── tailwind.config.js
 │   └── vite.config.ts
+├── JALANKAN_FYJ_REMOTE.bat       # 1-Click launcher Windows
+├── HENTIKAN_APP.bat              # 1-Click stopper Windows
+├── JALANKAN_MOCK_AGENT.bat       # 1-Click WoL & ping simulator
 ├── .env.example
 ├── .gitignore
 ├── package.json                  # Root runner script
@@ -158,12 +165,16 @@ App-RemotePC/
 
 ## 5. Panduan Menjalankan Sistem
 
-### ⚡ Opsi 1: Menjalankan dengan 1-Klik (.BAT) — Rekomendasi di Windows
+### Opsi 1: Menjalankan dengan 1-Klik (.BAT) — Rekomendasi di Windows
+
 Cukup klik ganda file:
+
+```cmd
+JALANKAN_FYJ_REMOTE.bat
 ```
-👉 JALANKAN_FYJ_REMOTE.bat
-```
+
 Skrip ini akan secara otomatis:
+
 1. Memeriksa ketersediaan Node.js.
 2. Memasang seluruh dependensi backend dan frontend jika belum ada.
 3. Menginisialisasi basis data SQLite dan menanamkan data awal (seed).
@@ -171,8 +182,9 @@ Skrip ini akan secara otomatis:
 5. Membuka peramban (*browser*) Anda secara otomatis ke `http://localhost:3000`.
 
 Untuk menghentikan aplikasi, klik ganda:
-```
-👉 HENTIKAN_APP.bat
+
+```cmd
+HENTIKAN_APP.bat
 ```
 
 ---
@@ -180,10 +192,11 @@ Untuk menghentikan aplikasi, klik ganda:
 ### Opsi 2: Mode Manual (Zero-Config SQLite)
 
 1. **Instalasi Dependensi**:
+
    ```bash
    # Di folder backend
    cd backend
-   npm install
+   npm install --legacy-peer-deps
 
    # Di folder frontend
    cd ../frontend
@@ -191,6 +204,7 @@ Untuk menghentikan aplikasi, klik ganda:
    ```
 
 2. **Inisialisasi Basis Data & Data Awal (Seed)**:
+
    ```bash
    cd ../backend
    npm run prisma:push
@@ -198,24 +212,31 @@ Untuk menghentikan aplikasi, klik ganda:
    ```
 
 3. **Jalankan Backend & Frontend**:
+
    - Jalankan backend (Terminal 1):
+
      ```bash
      cd backend
      npm run dev
      ```
+
      *Server REST API aktif di `http://localhost:4000`, WebSocket di `ws://localhost:4000/api/v1/tunnel/remote`*
+
    - Jalankan frontend (Terminal 2):
+
      ```bash
      cd frontend
      npm run dev
      ```
+
      *Akses dasbor web di `http://localhost:3000`*
 
 ---
 
-### Opsi B: Mode Kontainer Docker Penuh (guacd + PostgreSQL)
+### Opsi 3: Mode Kontainer Docker Penuh (guacd + PostgreSQL)
 
 Untuk produksi dengan daemon penerjemah protokol Apache Guacamole asli:
+
 ```bash
 # Putar kontainer guacd, PostgreSQL, dan mock VNC
 docker compose -f docker/docker-compose.yml up -d
@@ -252,6 +273,9 @@ Saat pertama kali dijalankan, sistem telah dilengkapi akun bawaan untuk pengujia
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/auth/login` | Publik | Otentikasi pengguna & penerbitan token JWT |
 | `GET` | `/api/v1/labs` | Semua Peran | Mengambil daftar ruangan laboratorium |
+| `POST` | `/api/v1/labs` | Superadmin | Mendaftarkan ruangan lab baru |
+| `PUT` | `/api/v1/labs/:id` | Superadmin | Memperbarui nama lab / subnet broadcast |
+| `DELETE` | `/api/v1/labs/:id` | Superadmin | Menghapus ruangan lab |
 | `GET` | `/api/v1/labs/:id/workstations` | Semua Peran | Mengambil workstation dalam lab dan status terkininya |
 | `POST` | `/api/v1/workstations` | Superadmin | Mendaftarkan PC baru (validasi unik IP dan MAC) |
 | `PUT` | `/api/v1/workstations/:id` | Superadmin | Memperbarui metadata komputer |
@@ -271,17 +295,20 @@ Saat pertama kali dijalankan, sistem telah dilengkapi akun bawaan untuk pengujia
 Anda dapat menguji paket Wake-on-LAN menggunakan skrip mock agent yang disediakan di `mock-lab/`:
 
 **Jalankan Mock Agent (Node.js):**
+
 ```bash
 node mock-lab/mock_agent.js
 ```
 
 **Jalankan Mock Agent (Python):**
+
 ```bash
 python mock-lab/mock_agent.py
 ```
 
 Saat Anda mengklik tombol **"Nyalakan Semua (WoL)"** atau ikon petir pada kartu PC di dasbor web, terminal mock agent akan segera mendeteksi paket Magic Packet yang dikirimkan:
-```
+
+```text
 [Mock Agent] Magic Packet diterima dari 127.0.0.1:xxxxx untuk MAC: 00:1A:2B:3C:4D:01! Status -> BERHASIL BANGUN.
 ```
 

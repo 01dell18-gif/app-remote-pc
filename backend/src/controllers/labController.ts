@@ -79,4 +79,49 @@ export class LabController {
       res.status(500).json({ success: false, message: err.message || 'Gagal menambahkan laboratorium' });
     }
   }
+
+  public static async updateLab(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const { labName, subnetBroadcast, totalCapacity } = req.body;
+
+      const existing = await prisma.laboratory.findUnique({ where: { id } });
+      if (!existing) {
+        res.status(404).json({ success: false, message: 'Laboratorium tidak ditemukan' });
+        return;
+      }
+
+      const updated = await prisma.laboratory.update({
+        where: { id },
+        data: {
+          ...(labName && { labName }),
+          ...(subnetBroadcast && { subnetBroadcast }),
+          ...(totalCapacity !== undefined && { totalCapacity: parseInt(totalCapacity, 10) }),
+        },
+      });
+
+      res.json({ success: true, lab: updated });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message || 'Gagal memperbarui laboratorium' });
+    }
+  }
+
+  public static async deleteLab(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const existing = await prisma.laboratory.findUnique({ where: { id } });
+
+      if (!existing) {
+        res.status(404).json({ success: false, message: 'Laboratorium tidak ditemukan' });
+        return;
+      }
+
+      await prisma.laboratory.delete({ where: { id } });
+
+      res.json({ success: true, message: `Laboratorium ${existing.labName} berhasil dihapus` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal menghapus laboratorium' });
+    }
+  }
 }
+
