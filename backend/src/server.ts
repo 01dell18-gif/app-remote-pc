@@ -13,6 +13,7 @@ import powerRoutes from './routes/powerRoutes';
 import classroomRoutes from './routes/classroomRoutes';
 import remoteRoutes from './routes/remoteRoutes';
 import auditRoutes from './routes/auditRoutes';
+import executionRoutes from './routes/executionRoutes';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/v1/power', powerRoutes);
 app.use('/api/v1/classroom', classroomRoutes);
 app.use('/api/v1/remote', remoteRoutes);
 app.use('/api/v1/audit', auditRoutes);
+app.use('/api/v1/execution', executionRoutes);
 
 // Buat Server HTTP dan pasang WebSocket Gateway
 const server = http.createServer(app);

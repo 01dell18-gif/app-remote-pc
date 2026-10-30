@@ -8,6 +8,7 @@ import {
   Edit2,
   Trash2,
   ExternalLink,
+  Terminal,
 } from 'lucide-react';
 import { Workstation } from '../../types';
 import { CardSize } from '../../stores/labStore';
@@ -20,6 +21,7 @@ interface WorkstationCardProps {
   workstation: Workstation;
   onEdit: (ws: Workstation) => void;
   onDelete: (id: number) => void;
+  onOpenAppManager: (ws: Workstation) => void;
   size?: CardSize;
 }
 
@@ -27,6 +29,7 @@ export const WorkstationCard: React.FC<WorkstationCardProps> = ({
   workstation,
   onEdit,
   onDelete,
+  onOpenAppManager,
   size = 'medium',
 }) => {
   const { user } = useAuthStore();
@@ -273,6 +276,17 @@ export const WorkstationCard: React.FC<WorkstationCardProps> = ({
                       >
                         <Power className="w-3.5 h-3.5" />
                         <span>Matikan (Shutdown)</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onOpenAppManager(workstation);
+                        }}
+                        className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-slate-700/60 text-teal-300 font-medium"
+                      >
+                        <Terminal className="w-3.5 h-3.5" />
+                        <span>Buka / Tutup Aplikasi</span>
                       </button>
 
                       <div className="my-1 border-t border-slate-750" />

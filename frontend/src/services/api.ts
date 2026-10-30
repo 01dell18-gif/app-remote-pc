@@ -168,4 +168,40 @@ export const api = {
     });
     return handleResponse(res);
   },
+
+  // Remote Execution (Buka & Tutup Aplikasi)
+  async launchApp(data: {
+    workstationIds: number[];
+    appPath: string;
+    args?: string;
+    executionType?: 'PATH' | 'SCRIPT';
+    scriptContent?: string;
+  }): Promise<{ success: boolean; message: string; results: any[] }> {
+    const res = await fetch(`${API_BASE}/execution/launch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+  },
+
+  async terminateApp(data: {
+    workstationIds: number[];
+    processName: string;
+    force?: boolean;
+  }): Promise<{ success: boolean; message: string; results: any[] }> {
+    const res = await fetch(`${API_BASE}/execution/terminate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+  },
+
+  async getAppPresets(): Promise<{ success: boolean; presets: any[] }> {
+    const res = await fetch(`${API_BASE}/execution/presets`, {
+      headers: { ...getAuthHeader() },
+    });
+    return handleResponse(res);
+  },
 };

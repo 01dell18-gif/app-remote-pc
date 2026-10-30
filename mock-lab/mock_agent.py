@@ -61,4 +61,63 @@ if __name__ == "__main__":
     t7 = threading.Thread(target=listen_wol, args=(7,), daemon=True)
     t7.start()
 
+    # Jalankan HTTP Execution server pada port 5902 (Python stdlib)
+    def run_http_exec_server():
+        import json
+        import subprocess
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+
+        class ExecHandler(BaseHTTPRequestHandler):
+            def log_message(self, format, *args):
+                pass # suppress default logging
+
+            def do_POST(self):
+                content_len = int(self.headers.get('Content-Length', 0))
+                post_body = self.rfile.read(content_len)
+                try:
+                    data = json.loads(post_body.decode('utf-8'))
+                except:
+                    data = {}
+
+                if self.path == '/api/launch':
+                    cmd = data.get('command') or data.get('appPath') or ''
+                    print(f"[Mock Agent] [HTTP 5902] Menerima instruksi BUKA: {cmd}")
+                    try:
+                        subprocess.Popen(cmd, shell=True)
+                        res = {"success": True, "message": f"Aplikasi berhasil dijalankan: {cmd}"}
+                    except Exception as err:
+                        res = {"success": False, "message": str(err)}
+
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(res).encode('utf-8'))
+
+                elif self.path == '/api/terminate':
+                    proc = data.get('processName', '')
+                    print(f"[Mock Agent] [HTTP 5902] Menerima instruksi TUTUP: {proc}")
+                    try:
+                        subprocess.run(f"taskkill /F /IM {proc}", shell=True)
+                        res = {"success": True, "message": f"Proses {proc} berhasil ditutup."}
+                    except Exception as err:
+                        res = {"success": False, "message": str(err)}
+
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(res).encode('utf-8'))
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+
+        try:
+            httpd = HTTPServer(('0.0.0.0', 5902), ExecHandler)
+            print("[Mock Agent] HTTP Command Receiver aktif pada port 5902.")
+            httpd.serve_forever()
+        except Exception as e:
+            print(f"[Mock Agent] Gagal memulai HTTP server: {e}")
+
+    t_http = threading.Thread(target=run_http_exec_server, daemon=True)
+    t_http.start()
+
     listen_wol(wol_port)

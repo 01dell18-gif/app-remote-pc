@@ -1,17 +1,27 @@
 import React, { useMemo } from 'react';
 import { Workstation } from '../../types';
 import { WorkstationCard } from './WorkstationCard';
-import { Search, Filter, MonitorOff, LayoutGrid, Grid3X3, Maximize2 } from 'lucide-react';
+import {
+  Search,
+  Filter,
+  MonitorOff,
+  LayoutGrid,
+  Grid3X3,
+  Maximize2,
+  ChevronDown,
+} from 'lucide-react';
 import { useLabStore } from '../../stores/labStore';
 
 interface LabGridProps {
   onEditWorkstation: (ws: Workstation) => void;
   onDeleteWorkstation: (id: number) => void;
+  onOpenAppManager: (ws: Workstation) => void;
 }
 
 export const LabGrid: React.FC<LabGridProps> = ({
   onEditWorkstation,
   onDeleteWorkstation,
+  onOpenAppManager,
 }) => {
   const {
     workstations,
@@ -22,6 +32,10 @@ export const LabGrid: React.FC<LabGridProps> = ({
     cardSize,
     setCardSize,
   } = useLabStore();
+
+  const onlineCount = workstations.filter((w) => w.powerStatus === 'ONLINE').length;
+  const inSessionCount = workstations.filter((w) => w.powerStatus === 'IN_SESSION').length;
+  const offlineCount = workstations.filter((w) => w.powerStatus === 'OFFLINE').length;
 
   const filteredWorkstations = useMemo(() => {
     return workstations.filter((ws) => {
@@ -69,7 +83,7 @@ export const LabGrid: React.FC<LabGridProps> = ({
     <div className="space-y-6">
       {/* Filter, Search, and View Size Bar */}
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-surface-900/80 p-3 rounded-2xl border border-slate-800 shadow-sm">
-        {/* Search */}
+        {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -81,33 +95,23 @@ export const LabGrid: React.FC<LabGridProps> = ({
           />
         </div>
 
-        {/* Filter buttons & View Size switcher */}
+        {/* Filter Dropdown & View Size switcher */}
         <div className="flex items-center gap-3 flex-wrap justify-between lg:justify-end">
-          {/* Status Filter */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
-            <Filter className="w-3.5 h-3.5 text-slate-400 mr-1 hidden sm:block" />
-            {(['ALL', 'ONLINE', 'IN_SESSION', 'OFFLINE'] as const).map((filter) => {
-              const labels = {
-                ALL: 'Semua',
-                ONLINE: 'Online',
-                IN_SESSION: 'Dalam Sesi',
-                OFFLINE: 'Offline',
-              };
-              const isActive = statusFilter === filter;
-              return (
-                <button
-                  key={filter}
-                  onClick={() => setStatusFilter(filter)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap ${
-                    isActive
-                      ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30 font-semibold'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'
-                  }`}
-                >
-                  {labels[filter]}
-                </button>
-              );
-            })}
+          {/* Status Filter Dropdown (Menghemat Ruang) */}
+          <div className="relative shrink-0">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              aria-label="Filter Status Komputer"
+              className="appearance-none bg-surface-850 hover:bg-surface-800 border border-slate-700/80 text-xs font-semibold text-slate-200 pl-8 pr-8 py-2 rounded-xl focus:outline-none focus:border-brand-500 cursor-pointer transition-colors shadow-sm"
+            >
+              <option value="ALL">Semua Status ({workstations.length})</option>
+              <option value="ONLINE">🟢 Online ({onlineCount})</option>
+              <option value="IN_SESSION">🟡 Dalam Sesi ({inSessionCount})</option>
+              <option value="OFFLINE">🔴 Offline ({offlineCount})</option>
+            </select>
+            <Filter className="w-3.5 h-3.5 text-brand-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
           <div className="h-5 w-[1px] bg-slate-800 hidden sm:block" />
@@ -167,7 +171,7 @@ export const LabGrid: React.FC<LabGridProps> = ({
             Tidak ada workstation yang cocok
           </h4>
           <p className="text-xs text-slate-400 max-w-sm">
-            Pastikan kata kunci pencarian Anda benar, atau tambahkan komputer baru ke dalam laboratorium ini.
+            Pastikan kata kunci pencarian Anda benar, atau sesuaikan filter status komputer.
           </p>
         </div>
       ) : (
@@ -194,6 +198,7 @@ export const LabGrid: React.FC<LabGridProps> = ({
                     workstation={ws}
                     onEdit={onEditWorkstation}
                     onDelete={onDeleteWorkstation}
+                    onOpenAppManager={onOpenAppManager}
                     size={cardSize}
                   />
                 ))}

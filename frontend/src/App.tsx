@@ -8,6 +8,7 @@ import { ClassroomLockModal } from './components/dashboard/ClassroomLockModal';
 import { AuditLogsModal } from './components/dashboard/AuditLogsModal';
 import { ManageLabsModal } from './components/dashboard/ManageLabsModal';
 import { RemoteViewport } from './components/remote/RemoteViewport';
+import { RemoteAppModal } from './components/dashboard/RemoteAppModal';
 import { LoginModal } from './components/auth/LoginModal';
 import { Workstation } from './types';
 import { api } from './services/api';
@@ -29,6 +30,8 @@ export const App: React.FC = () => {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [lockModalOpen, setLockModalOpen] = useState(false);
   const [manageLabsModalOpen, setManageLabsModalOpen] = useState(false);
+  const [remoteAppModalOpen, setRemoteAppModalOpen] = useState(false);
+  const [appModalTarget, setAppModalTarget] = useState<Workstation | null>(null);
   const [workstationToEdit, setWorkstationToEdit] = useState<Workstation | null>(null);
 
   useEffect(() => {
@@ -44,6 +47,11 @@ export const App: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [isAuthenticated, fetchLabs, fetchWorkstations]);
+
+  const handleOpenAppManager = (ws?: Workstation) => {
+    setAppModalTarget(ws || null);
+    setRemoteAppModalOpen(true);
+  };
 
   const handleEditWorkstation = (ws: Workstation) => {
     setWorkstationToEdit(ws);
@@ -76,6 +84,7 @@ export const App: React.FC = () => {
         onOpenAuditModal={() => setAuditModalOpen(true)}
         onOpenLockModal={() => setLockModalOpen(true)}
         onOpenManageLabsModal={() => setManageLabsModalOpen(true)}
+        onOpenRemoteAppModal={() => handleOpenAppManager()}
       />
 
       {/* Classroom Lock Banner jika aktif */}
@@ -119,6 +128,7 @@ export const App: React.FC = () => {
         <LabGrid
           onEditWorkstation={handleEditWorkstation}
           onDeleteWorkstation={handleDeleteWorkstation}
+          onOpenAppManager={handleOpenAppManager}
         />
       </main>
 
@@ -135,6 +145,15 @@ export const App: React.FC = () => {
       <ManageLabsModal
         isOpen={manageLabsModalOpen}
         onClose={() => setManageLabsModalOpen(false)}
+      />
+
+      <RemoteAppModal
+        isOpen={remoteAppModalOpen}
+        onClose={() => {
+          setRemoteAppModalOpen(false);
+          setAppModalTarget(null);
+        }}
+        targetWorkstation={appModalTarget}
       />
 
       <ClassroomLockModal

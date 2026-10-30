@@ -11,6 +11,7 @@ import {
   Layers,
   Shield,
   Settings2,
+  Terminal,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useLabStore } from '../../stores/labStore';
@@ -20,6 +21,7 @@ interface NavbarProps {
   onOpenAuditModal: () => void;
   onOpenLockModal: () => void;
   onOpenManageLabsModal: () => void;
+  onOpenRemoteAppModal: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -27,6 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAuditModal,
   onOpenLockModal,
   onOpenManageLabsModal,
+  onOpenRemoteAppModal,
 }) => {
   const { user, logout } = useAuthStore();
   const {
@@ -229,6 +232,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="hidden sm:inline">
                   {isClassroomLocked ? 'Layar Terkunci' : 'Kunci Layar'}
                 </span>
+              </button>
+
+              {/* Tombol Jalankan / Tutup Aplikasi Massal */}
+              <button
+                onClick={onOpenRemoteAppModal}
+                title="Buka atau tutup aplikasi pada seluruh komputer lab"
+                className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-surface-850 hover:bg-surface-800 text-teal-300 border border-teal-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Terminal className="w-3.5 h-3.5 text-teal-400" />
+                <span>Jalankan Aplikasi</span>
               </button>
 
               {/* Tombol Tambah Komputer */}
