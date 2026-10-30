@@ -158,8 +158,26 @@ App-RemotePC/
 
 ## 5. Panduan Menjalankan Sistem
 
-### Opsi A: Mode Cepat (Zero-Config SQLite)
-Mode ini dapat dijalankan langsung di lingkungan lokal Windows / Linux tanpa memerlukan instalasi Docker:
+### ⚡ Opsi 1: Menjalankan dengan 1-Klik (.BAT) — Rekomendasi di Windows
+Cukup klik ganda file:
+```
+👉 JALANKAN_FYJ_REMOTE.bat
+```
+Skrip ini akan secara otomatis:
+1. Memeriksa ketersediaan Node.js.
+2. Memasang seluruh dependensi backend dan frontend jika belum ada.
+3. Menginisialisasi basis data SQLite dan menanamkan data awal (seed).
+4. Menjalankan server backend (port 4000) dan frontend (port 3000).
+5. Membuka peramban (*browser*) Anda secara otomatis ke `http://localhost:3000`.
+
+Untuk menghentikan aplikasi, klik ganda:
+```
+👉 HENTIKAN_APP.bat
+```
+
+---
+
+### Opsi 2: Mode Manual (Zero-Config SQLite)
 
 1. **Instalasi Dependensi**:
    ```bash
