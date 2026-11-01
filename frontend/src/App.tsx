@@ -17,7 +17,7 @@ import { ScanNetworkModal } from './components/dashboard/ScanNetworkModal';
 import { LoginModal } from './components/auth/LoginModal';
 import { Workstation } from './types';
 import { api } from './services/api';
-import { Lock } from 'lucide-react';
+import { Lock, RefreshCw } from 'lucide-react';
 
 export const App: React.FC = () => {
   const { isAuthenticated, checkAuth } = useAuthStore();
@@ -29,6 +29,8 @@ export const App: React.FC = () => {
     isClassroomLocked,
     lockMessage,
     selectedLab,
+    isSyncing,
+    syncAllWorkstations,
   } = useLabStore();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -46,6 +48,7 @@ export const App: React.FC = () => {
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [appModalTarget, setAppModalTarget] = useState<Workstation | null>(null);
   const [workstationToEdit, setWorkstationToEdit] = useState<Workstation | null>(null);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -54,12 +57,19 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchLabs();
-      const interval = setInterval(() => {
-        fetchWorkstations();
-      }, 8000);
-      return () => clearInterval(interval);
     }
-  }, [isAuthenticated, fetchLabs, fetchWorkstations]);
+  }, [isAuthenticated, fetchLabs]);
+
+  const handleSyncAll = async () => {
+    try {
+      const msg = await syncAllWorkstations();
+      setSyncToast(msg);
+      setTimeout(() => setSyncToast(null), 4000);
+    } catch (err: any) {
+      setSyncToast('Sinkronisasi gagal: ' + err.message);
+      setTimeout(() => setSyncToast(null), 4000);
+    }
+  };
 
   const handleOpenAppManager = (ws?: Workstation) => {
     setAppModalTarget(ws || null);
@@ -163,9 +173,22 @@ export const App: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-glow-emerald" />
-              <span>Sinkronisasi Real-Time</span>
+            {/* Tombol Sinkronisasi Manual Berupa Ikon */}
+            <div className="flex items-center gap-2">
+              {syncToast && (
+                <span className="text-xs text-emerald-400 font-medium px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-800/60 animate-in fade-in duration-150">
+                  {syncToast}
+                </span>
+              )}
+              <button
+                onClick={handleSyncAll}
+                disabled={isSyncing}
+                title="Klik untuk menyinkronkan status seluruh komputer lab"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-850 hover:bg-surface-800 border border-slate-700 hover:border-brand-500/60 text-xs font-semibold text-slate-200 hover:text-white transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-brand-400 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span>{isSyncing ? 'Menyinkronkan...' : 'Sinkronisasi'}</span>
+              </button>
             </div>
           </div>
 

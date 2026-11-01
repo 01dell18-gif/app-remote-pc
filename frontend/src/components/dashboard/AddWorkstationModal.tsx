@@ -172,7 +172,7 @@ export const AddWorkstationModal: React.FC<AddWorkstationModalProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
               Baris Meja (Row)
@@ -199,22 +199,6 @@ export const AddWorkstationModal: React.FC<AddWorkstationModalProps> = ({
               onChange={(e) => setGridColumn(parseInt(e.target.value, 10) || 1)}
               className="w-full bg-surface-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
             />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Mode Remote
-            </label>
-            <select
-              value={connectionMode}
-              onChange={(e) => setConnectionMode(e.target.value as ConnectionMode)}
-              className="w-full bg-surface-850 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
-            >
-              <option value="RDP_SHADOW">RDP Shadowing (Console)</option>
-              <option value="RDP_FULL">RDP Mandiri (Port 3389)</option>
-              <option value="VNC">VNC / RFB (Port 5900)</option>
-              <option value="MOCK_AGENT">Mock Simulator (Lab Test)</option>
-            </select>
           </div>
         </div>
 

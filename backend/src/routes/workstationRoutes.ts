@@ -9,6 +9,7 @@ router.use(authenticate);
 router.get('/export', requireRole(['SUPERADMIN', 'INSTRUCTOR', 'LAB_ASSISTANT']), WorkstationController.exportWorkstations);
 router.post('/import', requireRole(['SUPERADMIN', 'INSTRUCTOR']), WorkstationController.importWorkstations);
 router.post('/scan-network', requireRole(['SUPERADMIN', 'INSTRUCTOR']), WorkstationController.scanNetwork);
+router.post('/sync-all', requireRole(['SUPERADMIN', 'INSTRUCTOR', 'LAB_ASSISTANT']), WorkstationController.syncAllWorkstations);
 router.post('/:id/ping', requireRole(['SUPERADMIN', 'INSTRUCTOR', 'LAB_ASSISTANT']), WorkstationController.pingWorkstation);
 router.post('/', requireRole(['SUPERADMIN', 'INSTRUCTOR']), WorkstationController.createWorkstation);
 router.put('/:id', requireRole(['SUPERADMIN', 'INSTRUCTOR']), WorkstationController.updateWorkstation);

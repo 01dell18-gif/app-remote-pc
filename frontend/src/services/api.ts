@@ -130,6 +130,19 @@ export const api = {
     return handleResponse(res);
   },
 
+  async syncAllWorkstations(labId?: number): Promise<{
+    success: boolean;
+    message: string;
+    workstations: Workstation[];
+  }> {
+    const url = labId ? `${API_BASE}/workstations/sync-all?labId=${labId}` : `${API_BASE}/workstations/sync-all`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { ...getAuthHeader() },
+    });
+    return handleResponse(res);
+  },
+
   // Power
   async wakeOnLan(workstationIds: number[]): Promise<{ success: boolean; message: string; results: any[] }> {
     const res = await fetch(`${API_BASE}/power/wol`, {

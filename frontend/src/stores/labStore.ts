@@ -12,6 +12,7 @@ interface LabState {
   isClassroomLocked: boolean;
   lockMessage: string;
   isLoading: boolean;
+  isSyncing: boolean;
   searchQuery: string;
   statusFilter: 'ALL' | 'ONLINE' | 'OFFLINE' | 'IN_SESSION';
   cardSize: CardSize;
@@ -24,6 +25,7 @@ interface LabState {
   updateLab: (id: number, data: { labName?: string; subnetBroadcast?: string; totalCapacity?: number }) => Promise<void>;
   deleteLab: (id: number) => Promise<void>;
   fetchWorkstations: () => Promise<void>;
+  syncAllWorkstations: () => Promise<string>;
   setSearchQuery: (query: string) => void;
   setStatusFilter: (filter: 'ALL' | 'ONLINE' | 'OFFLINE' | 'IN_SESSION') => void;
   setCardSize: (size: CardSize) => void;
@@ -54,6 +56,7 @@ export const useLabStore = create<LabState>((set, get) => ({
   isClassroomLocked: false,
   lockMessage: '',
   isLoading: false,
+  isSyncing: false,
   searchQuery: '',
   statusFilter: 'ALL',
   cardSize: 'medium',
@@ -112,6 +115,23 @@ export const useLabStore = create<LabState>((set, get) => ({
   deleteLab: async (id) => {
     await api.deleteLab(id);
     await get().fetchLabs();
+  },
+
+  syncAllWorkstations: async () => {
+    const currentLab = get().selectedLab;
+    set({ isSyncing: true });
+    try {
+      const res = await api.syncAllWorkstations(currentLab?.id);
+      set({
+        workstations: res.workstations,
+        isSyncing: false,
+      });
+      return res.message;
+    } catch (err: any) {
+      console.error('Gagal sinkronisasi:', err);
+      set({ isSyncing: false });
+      throw err;
+    }
   },
 
   fetchWorkstations: async () => {

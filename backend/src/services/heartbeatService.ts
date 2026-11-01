@@ -167,16 +167,13 @@ export class HeartbeatService {
   }
 
   /**
-   * Memulai timer polling otomatis
+   * Memulai service tanpa timer polling otomatis berulang (sinkronisasi manual sesuai permintaan pengguna)
    */
   public static start(): void {
     if (this.timer) return;
-    console.log(`[HeartbeatService] Memulai background heartbeat checker real-time (interval: ${config.heartbeatIntervalMs}ms)...`);
-    // Jalankan pemeriksaan awal
+    console.log('[HeartbeatService] Inisialisasi service (mode sinkronisasi manual via tombol).');
+    // Jalankan pemeriksaan awal satu kali saat server mulai
     this.checkAllWorkstations();
-    this.timer = setInterval(() => {
-      this.checkAllWorkstations();
-    }, config.heartbeatIntervalMs);
   }
 
   /**

@@ -240,6 +240,45 @@ export class WorkstationController {
   }
 
   /**
+   * Menyinkronkan status seluruh workstation dalam laboratorium secara paralel
+   */
+  public static async syncAllWorkstations(req: Request, res: Response): Promise<void> {
+    try {
+      const labId = req.query.labId ? parseInt(req.query.labId as string, 10) : undefined;
+      const where = labId && !isNaN(labId) ? { labId } : {};
+
+      const workstations = await prisma.workstation.findMany({
+        where,
+        orderBy: [{ gridRow: 'asc' }, { gridColumn: 'asc' }],
+      });
+
+      // Diagnosis seluruh workstation secara paralel (cepat & efisien)
+      const results = await Promise.all(
+        workstations.map(async (ws) => {
+          const diag = await HeartbeatService.diagnoseWorkstation(ws.id);
+          const updated = await prisma.workstation.findUnique({ where: { id: ws.id } });
+          return {
+            ...updated,
+            diagnostics: diag,
+          };
+        })
+      );
+
+      const onlineCount = results.filter((w) => w.powerStatus === 'ONLINE' || w.powerStatus === 'IN_SESSION').length;
+      const offlineCount = results.filter((w) => w.powerStatus === 'OFFLINE').length;
+
+      res.json({
+        success: true,
+        message: `Sinkronisasi selesai: ${onlineCount} aktif, ${offlineCount} tidak terhubung.`,
+        workstations: results,
+      });
+    } catch (err: any) {
+      console.error('[WorkstationController] Galat sinkronisasi:', err);
+      res.status(500).json({ success: false, message: 'Gagal menyinkronkan perangkat: ' + err.message });
+    }
+  }
+
+  /**
    * Ekspor data komputer lab ke format JSON/CSV
    */
   public static async exportWorkstations(req: Request, res: Response): Promise<void> {

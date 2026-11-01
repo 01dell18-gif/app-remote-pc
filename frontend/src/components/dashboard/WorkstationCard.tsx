@@ -173,9 +173,7 @@ export const WorkstationCard: React.FC<WorkstationCardProps> = React.memo(({
             </span>
           )}
 
-          <span className="text-[10px] text-slate-400 font-semibold px-1.5 py-0.5 rounded bg-slate-800/80 hidden sm:inline-block">
-            {workstation.connectionMode.replace('_', ' ')}
-          </span>
+
 
           {/* Tombol Cepat: Sunting & Hapus Langsung di Header */}
           {canManage && (
@@ -424,46 +422,74 @@ export const WorkstationCard: React.FC<WorkstationCardProps> = React.memo(({
             </div>
           </div>
         ) : (
-          /* TAMPILAN JIKA TERHUBUNG (ONLINE / AKTIF) */
+          /* TAMPILAN JIKA TERHUBUNG: LANGSUNG TAMPILKAN PERANGKATNYA (DESKTOP MONITOR) */
           <div className="flex flex-col h-full justify-between gap-2">
-            {/* Header Status Perangkat */}
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-1.5">
-              <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
-                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                <span>{workstation.powerStatus === 'IN_SESSION' ? 'SESI REMOTE AKTIF' : 'TERHUBUNG & AKTIF'}</span>
-              </div>
-              <span className="text-[10px] text-cyan-300 font-mono bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-800/50">
-                {workstation.osFamily}
-              </span>
-            </div>
+            {/* Monitor Fisik / Tampilan Layar Desktop Komputer */}
+            <div
+              onClick={handleStartRemote}
+              className="relative group/screen cursor-pointer rounded-xl overflow-hidden border border-slate-750 hover:border-emerald-500/60 shadow-md transition-all bg-slate-950 flex flex-col justify-between"
+              style={{ minHeight: size === 'small' ? '120px' : size === 'large' ? '200px' : '150px' }}
+              title="Klik layar komputer untuk langsung meremote perangkat ini"
+            >
+              {/* Wallpaper Desktop Windows / Modern Flow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-sky-900 via-blue-950 to-slate-950 opacity-95" />
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-teal-500/15 via-sky-600/5 to-transparent pointer-events-none" />
 
-            {/* Representasi Monitor Komputer Asli */}
-            <div className="relative bg-gradient-to-br from-slate-900 via-slate-900/90 to-surface-850 border border-slate-750 rounded-xl p-2.5 flex flex-col justify-between gap-1 shadow-inner">
-              <div className="flex items-center justify-between text-[11px]">
-                <div className="flex items-center gap-1.5 text-slate-200 font-semibold truncate">
-                  <Monitor className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+              {/* Bar Jendela Aktif Desktop (Mockup Windows Window) */}
+              <div className="relative z-10 m-2 p-2 rounded-lg bg-slate-900/85 backdrop-blur-sm border border-slate-700/60 flex items-center justify-between text-[11px] shadow">
+                <div className="flex items-center gap-1.5 truncate text-white font-semibold">
+                  <Monitor className="w-3.5 h-3.5 text-teal-400 shrink-0" />
                   <span className="truncate">{workstation.hostname}</span>
                 </div>
-                <span className="text-[10px] text-slate-400 font-mono">{workstation.ipAddress}</span>
+                <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-mono shrink-0">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>Online</span>
+                </div>
               </div>
 
-              <div className="text-[10px] text-slate-400 flex items-center justify-between mt-1">
-                <span>Protokol: {workstation.connectionMode.replace('_', ' ')}</span>
-                <span className="text-emerald-400 font-mono">Port {targetPort} Open</span>
+              {/* Area Tengah Desktop: Hostname & IP */}
+              <div className="relative z-10 px-3 flex flex-col items-center justify-center text-center my-auto">
+                <div className="text-xs font-mono font-bold text-white tracking-wider">
+                  {workstation.ipAddress}
+                </div>
+                <div className="text-[10px] text-teal-200/80 mt-0.5">
+                  {workstation.osFamily === 'WINDOWS' ? 'Windows Desktop' : workstation.osFamily}
+                </div>
               </div>
 
-              <div className="text-[9.5px] text-slate-500 truncate mt-0.5">
-                {workstation.diagnostics?.message || 'Workstation siap untuk pengawasan dan kendali jarak jauh penuh.'}
+              {/* Taskbar Windows di Bagian Bawah Monitor */}
+              <div className="relative z-10 h-6 bg-slate-950/90 backdrop-blur-md border-t border-slate-800/80 px-2 flex items-center justify-between text-[9px] text-slate-300">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 grid grid-cols-2 gap-0.5" title="Windows Start">
+                    <span className="bg-sky-400 rounded-[1px]" />
+                    <span className="bg-sky-400 rounded-[1px]" />
+                    <span className="bg-sky-400 rounded-[1px]" />
+                    <span className="bg-sky-400 rounded-[1px]" />
+                  </div>
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-500 ml-0.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                </div>
+                <div className="flex items-center gap-1.5 font-mono text-[9px] text-slate-400">
+                  <span className="text-emerald-400">⚡ {workstation.diagnostics?.latencyMs ?? 1}ms</span>
+                  <span>Port {targetPort}</span>
+                </div>
+              </div>
+
+              {/* Hover Overlay: Klik untuk Remote */}
+              <div className="absolute inset-0 z-20 bg-slate-950/75 backdrop-blur-[2px] opacity-0 group-hover/screen:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
+                <ExternalLink className="w-6 h-6 text-emerald-400" />
+                <span className="text-xs font-bold text-emerald-300">Kendalikan Perangkat</span>
+                <span className="text-[10px] text-slate-300">Klik untuk membuka Remote</span>
               </div>
             </div>
 
-            {/* Tombol Kendali Cepat di Kartu */}
-            <div className="flex items-center gap-1.5 pt-1">
+            {/* Tombol Kendali Cepat di Bawah Monitor */}
+            <div className="flex items-center gap-1.5 pt-0.5">
               <button
                 onClick={handleStartRemote}
                 disabled={connecting}
                 className="flex-1 py-1.5 px-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-[11px] flex items-center justify-center gap-1.5 transition-all shadow-md shadow-brand-900/40 disabled:opacity-50"
-                title="Buka Viewport Remote di Web"
+                title="Buka Viewport Remote Interaktif di Web"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>{connecting ? 'Menghubungkan...' : 'Remote Web'}</span>
@@ -471,7 +497,7 @@ export const WorkstationCard: React.FC<WorkstationCardProps> = React.memo(({
 
               <button
                 onClick={handleLaunchMstsc}
-                className="py-1.5 px-2 rounded-lg bg-cyan-700/80 hover:bg-cyan-600 text-white font-semibold text-[11px] flex items-center justify-center gap-1 transition-all"
+                className="py-1.5 px-2.5 rounded-lg bg-cyan-700/80 hover:bg-cyan-600 text-white font-semibold text-[11px] flex items-center justify-center gap-1 transition-all"
                 title="Buka langsung dengan Microsoft Remote Desktop Windows (MSTSC)"
               >
                 <Monitor className="w-3.5 h-3.5" />
