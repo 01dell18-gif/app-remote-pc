@@ -119,6 +119,35 @@ export const useLabStore = create<LabState>((set, get) => ({
     if (!currentLab) return;
     try {
       const res = await api.getLabWorkstations(currentLab.id);
+      const currentWorkstations = get().workstations;
+
+      // Cek apakah ada perubahan nyata pada data workstation untuk menghindari re-render yang kedip-kedip
+      const hasChanged =
+        currentWorkstations.length !== res.workstations.length ||
+        res.workstations.some((nw: Workstation, idx: number) => {
+          const cw = currentWorkstations[idx];
+          if (!cw) return true;
+          return (
+            cw.id !== nw.id ||
+            cw.powerStatus !== nw.powerStatus ||
+            cw.hostname !== nw.hostname ||
+            cw.ipAddress !== nw.ipAddress ||
+            cw.macAddress !== nw.macAddress ||
+            cw.connectionMode !== nw.connectionMode ||
+            cw.gridRow !== nw.gridRow ||
+            cw.gridColumn !== nw.gridColumn ||
+            cw.diagnostics?.pingSuccess !== nw.diagnostics?.pingSuccess ||
+            cw.diagnostics?.portOpen !== nw.diagnostics?.portOpen ||
+            cw.diagnostics?.latencyMs !== nw.diagnostics?.latencyMs ||
+            cw.diagnostics?.message !== nw.diagnostics?.message
+          );
+        });
+
+      if (!hasChanged) {
+        // Data identik, lewati set state agar UI tetap tenang tanpa kedipan
+        return;
+      }
+
       const updates: Partial<LabState> = { workstations: res.workstations };
       // Jika belum ada yang terpilih sama sekali, pilih semua workstation lab secara otomatis
       if (get().selectedWorkstationIds.length === 0 && res.workstations.length > 0) {

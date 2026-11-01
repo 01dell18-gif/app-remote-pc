@@ -10,12 +10,12 @@ echo =====================================================================
 echo.
 
 echo Menghentikan proses yang berjalan pada Port 4000 (Backend)...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :4000') do (
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr LISTENING ^| findstr :4000') do (
     taskkill /F /PID %%a >nul 2>nul
 )
 
 echo Menghentikan proses yang berjalan pada Port 3000 (Frontend)...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :3000') do (
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr LISTENING ^| findstr :3000') do (
     taskkill /F /PID %%a >nul 2>nul
 )
 

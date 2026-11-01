@@ -16,7 +16,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
     switch (status) {
       case 'ONLINE':
         return {
-          dotClass: 'bg-emerald-400 shadow-glow-emerald animate-pulse-slow',
+          dotClass: 'bg-emerald-400 shadow-glow-emerald',
           pingClass: 'bg-emerald-400',
           label: 'Online',
           textColor: 'text-emerald-400',
@@ -55,11 +55,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   return (
     <div className="inline-flex items-center gap-2">
       <span className="relative flex">
-        {style.pingClass && status === 'ONLINE' && (
-          <span
-            className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${style.pingClass}`}
-          />
-        )}
+{/* Indikator dot stabil tanpa kedipan berlebih */}
         <span
           className={`relative inline-flex rounded-full ${sizeMap[size]} ${style.dotClass}`}
         />

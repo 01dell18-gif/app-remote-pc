@@ -7,6 +7,8 @@ import {
   Activity,
   ChevronDown,
   ChevronUp,
+  Monitor,
+  Download,
 } from 'lucide-react';
 
 interface FloatingToolbarProps {
@@ -18,6 +20,8 @@ interface FloatingToolbarProps {
   onInjectShortcut: (shortcut: string) => void;
   onOpenClipboard: () => void;
   onDisconnect: () => void;
+  onLaunchMstsc?: () => void;
+  onDownloadRdp?: () => void;
 }
 
 export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
@@ -29,6 +33,8 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   onInjectShortcut,
   onOpenClipboard,
   onDisconnect,
+  onLaunchMstsc,
+  onDownloadRdp,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -57,6 +63,29 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
 
         {!isCollapsed && (
           <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+            {/* Native Windows RDP (MSTSC) Button */}
+            {onLaunchMstsc && (
+              <button
+                onClick={onLaunchMstsc}
+                title="Buka langsung menggunakan aplikasi Microsoft Remote Desktop (MSTSC)"
+                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 flex items-center gap-1 transition-colors"
+              >
+                <Monitor className="w-3 h-3" />
+                <span>Buka MSTSC</span>
+              </button>
+            )}
+
+            {/* Download .RDP Profile */}
+            {onDownloadRdp && (
+              <button
+                onClick={onDownloadRdp}
+                title="Unduh file konfigurasi .RDP"
+                className="p-1.5 rounded-xl bg-surface-850 hover:bg-surface-800 text-slate-300 hover:text-white border border-slate-750 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            )}
+
             {/* System Shortcut Buttons */}
             <div className="flex items-center gap-1 px-1 bg-surface-850/60 rounded-xl border border-slate-800">
               <button

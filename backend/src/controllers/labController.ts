@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { HeartbeatService } from '../services/heartbeatService';
 
 const prisma = new PrismaClient();
 
@@ -45,6 +46,12 @@ export class LabController {
         return;
       }
 
+      // Gabungkan informasi diagnostik jaringan real-time
+      const workstationsWithDiag = lab.workstations.map((ws) => ({
+        ...ws,
+        diagnostics: HeartbeatService.getDiagnostics(ws.id) || null,
+      }));
+
       res.json({
         success: true,
         lab: {
@@ -54,7 +61,7 @@ export class LabController {
           totalCapacity: lab.totalCapacity,
           createdAt: lab.createdAt,
         },
-        workstations: lab.workstations,
+        workstations: workstationsWithDiag,
       });
     } catch (err: any) {
       res.status(500).json({ success: false, message: 'Gagal mengambil data workstation lab' });
@@ -64,21 +71,25 @@ export class LabController {
   public static async createLab(req: Request, res: Response): Promise<void> {
     try {
       const { labName, subnetBroadcast, totalCapacity } = req.body;
-      if (!labName || !subnetBroadcast) {
-        res.status(400).json({ success: false, message: 'Nama Lab dan Subnet Broadcast wajib diisi' });
+      if (!labName || !labName.trim()) {
+        res.status(400).json({ success: false, message: 'Nama Ruang Lab wajib diisi' });
         return;
       }
 
       const lab = await prisma.laboratory.create({
         data: {
-          labName,
-          subnetBroadcast,
+          labName: labName.trim(),
+          subnetBroadcast: subnetBroadcast?.trim() || '255.255.255.255',
           totalCapacity: totalCapacity ? parseInt(totalCapacity, 10) : 40,
         },
       });
 
       res.status(201).json({ success: true, lab });
     } catch (err: any) {
+      if (err.code === 'P2002') {
+        res.status(409).json({ success: false, message: `Nama ruangan '${req.body.labName}' sudah terdaftar.` });
+        return;
+      }
       res.status(500).json({ success: false, message: err.message || 'Gagal menambahkan laboratorium' });
     }
   }
@@ -105,6 +116,10 @@ export class LabController {
 
       res.json({ success: true, lab: updated });
     } catch (err: any) {
+      if (err.code === 'P2002') {
+        res.status(409).json({ success: false, message: `Nama ruangan '${req.body.labName}' sudah digunakan oleh lab lain.` });
+        return;
+      }
       res.status(500).json({ success: false, message: err.message || 'Gagal memperbarui laboratorium' });
     }
   }
@@ -127,4 +142,3 @@ export class LabController {
     }
   }
 }
-

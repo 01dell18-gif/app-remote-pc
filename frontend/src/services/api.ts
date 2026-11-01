@@ -106,6 +106,30 @@ export const api = {
     return handleResponse(res);
   },
 
+  // On-demand Ping & Diagnostics
+  async pingWorkstation(id: number): Promise<{ success: boolean; workstation: Workstation }> {
+    const res = await fetch(`${API_BASE}/workstations/${id}/ping`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    });
+    return handleResponse(res);
+  },
+
+  // Scan Network
+  async scanNetwork(subnet?: string): Promise<{
+    success: boolean;
+    subnet: string;
+    count: number;
+    devices: Array<{ ip: string; isRdpOpen: boolean; isVncOpen: boolean }>;
+  }> {
+    const res = await fetch(`${API_BASE}/workstations/scan-network`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ subnet }),
+    });
+    return handleResponse(res);
+  },
+
   // Power
   async wakeOnLan(workstationIds: number[]): Promise<{ success: boolean; message: string; results: any[] }> {
     const res = await fetch(`${API_BASE}/power/wol`, {
@@ -159,6 +183,20 @@ export const api = {
       body: JSON.stringify({ workstationId }),
     });
     return handleResponse(res);
+  },
+
+  // Direct MSTSC (Windows Native Remote Desktop)
+  async launchMstsc(id: number): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/remote/${id}/mstsc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+    });
+    return handleResponse(res);
+  },
+
+  // Download .RDP Profile
+  getRdpDownloadUrl(id: number): string {
+    return `${API_BASE}/remote/${id}/rdp`;
   },
 
   // Audit Logs

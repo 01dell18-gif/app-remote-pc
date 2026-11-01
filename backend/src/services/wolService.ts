@@ -45,6 +45,17 @@ export class WolService {
   }
 
   /**
+   * Menghitung alamat broadcast subnet /24 dari sebuah IP address
+   */
+  public static calculateBroadcast(ip: string): string {
+    const parts = ip.split('.');
+    if (parts.length === 4) {
+      return `${parts[0]}.${parts[1]}.${parts[2]}.255`;
+    }
+    return '255.255.255.255';
+  }
+
+  /**
    * Mengirim Magic Packet UDP broadcast ke subnet atau IP target
    */
   public static sendPacket(
@@ -81,13 +92,13 @@ export class WolService {
                 message: `Galat saat mengirim ke ${broadcastIp}:${port} - ${err.message}`,
               });
             } else {
-              // Kirim juga ke port 7 untuk redundansi tinggi sesuai standar jaringan lab
+              // Kirim juga ke port 7 untuk redundansi tinggi
               if (port === 9) {
-                this.sendPacket(mac, broadcastIp, 7).catch(() => {});
+                this.sendPacketDirect(mac, broadcastIp, 7).catch(() => {});
               }
-              // Kirim juga ke localhost port jika sedang menguji dengan mock_agent lokal
-              if (broadcastIp !== '127.0.0.1') {
-                this.sendPacket(mac, '127.0.0.1', 9).catch(() => {});
+              // Kirim juga ke general broadcast 255.255.255.255
+              if (broadcastIp !== '255.255.255.255') {
+                this.sendPacketDirect(mac, '255.255.255.255', 9).catch(() => {});
               }
 
               resolve({
@@ -99,27 +110,32 @@ export class WolService {
             }
           });
         });
-      } catch (error: any) {
+      } catch (err: any) {
         resolve({
           mac,
           ip: broadcastIp,
           success: false,
-          message: error.message || 'Kesalahan formulasi Magic Packet',
+          message: err.message,
         });
       }
     });
   }
 
-  /**
-   * Mengirim Wake-on-LAN ke banyak workstation secara paralel
-   */
-  public static async sendBulk(
-    workstations: Array<{ macAddress: string; ipAddress?: string; subnetBroadcast?: string }>
-  ): Promise<WolResult[]> {
-    const promises = workstations.map((ws) => {
-      const targetBroadcast = ws.subnetBroadcast || config.wol.defaultBroadcastIp;
-      return this.sendPacket(ws.macAddress, targetBroadcast, config.wol.port);
+  private static sendPacketDirect(mac: string, ip: string, port: number): Promise<void> {
+    return new Promise((resolve) => {
+      try {
+        const packet = this.createMagicPacket(mac);
+        const client = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+        client.bind(() => {
+          client.setBroadcast(true);
+          client.send(packet, 0, packet.length, port, ip, () => {
+            client.close();
+            resolve();
+          });
+        });
+      } catch {
+        resolve();
+      }
     });
-    return Promise.all(promises);
   }
 }

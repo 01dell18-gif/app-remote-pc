@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { exec } from 'child_process';
 import { WolService } from '../services/wolService';
 import { AuditService } from '../services/auditService';
 
@@ -30,14 +31,15 @@ export class PowerController {
 
       const results = [];
       for (const ws of workstations) {
-        const broadcast = ws.laboratory?.subnetBroadcast || '255.255.255.255';
-        const resSend = await WolService.sendPacket(ws.macAddress, broadcast);
+        // Gunakan subnet broadcast lab atau hitung otomatis dari IP PC
+        const subnetCalculated = WolService.calculateBroadcast(ws.ipAddress);
+        const broadcast = ws.laboratory?.subnetBroadcast || subnetCalculated;
 
-        // Ubah status ke ONLINE (proses transisi)
-        await prisma.workstation.update({
-          where: { id: ws.id },
-          data: { powerStatus: 'ONLINE', lastHeartbeat: new Date() },
-        });
+        const resSend = await WolService.sendPacket(ws.macAddress, broadcast);
+        // Kirim juga ke subnet calculated jika berbeda
+        if (subnetCalculated !== broadcast) {
+          WolService.sendPacket(ws.macAddress, subnetCalculated).catch(() => {});
+        }
 
         if (req.user) {
           await AuditService.log(
@@ -58,7 +60,7 @@ export class PowerController {
 
       res.json({
         success: true,
-        message: `Sinyal Wake-on-LAN berhasil dikirim ke ${results.length} unit komputer`,
+        message: `Sinyal Wake-on-LAN berhasil dipancarkan ke ${results.length} unit komputer`,
         results,
       });
     } catch (err: any) {
@@ -84,6 +86,14 @@ export class PowerController {
       });
 
       for (const ws of workstations) {
+        // Eksekusi remote shutdown Windows via RPC jika Windows
+        if (ws.osFamily === 'WINDOWS') {
+          const forceFlag = force ? '/f' : '';
+          exec(`shutdown /m \\\\${ws.ipAddress} /s /t 15 ${forceFlag} /c "Dimatikan oleh Instruktur via FYJ Remote"`, { windowsHide: true }, (err) => {
+            if (err) console.warn(`[PowerController] Perintah shutdown ke ${ws.ipAddress} dilaporkan:`, err.message);
+          });
+        }
+
         await prisma.workstation.update({
           where: { id: ws.id },
           data: { powerStatus: 'OFFLINE' },
@@ -126,6 +136,12 @@ export class PowerController {
       });
 
       for (const ws of workstations) {
+        if (ws.osFamily === 'WINDOWS') {
+          exec(`shutdown /m \\\\${ws.ipAddress} /r /t 10 /f /c "Mulai ulang oleh Instruktur via FYJ Remote"`, { windowsHide: true }, (err) => {
+            if (err) console.warn(`[PowerController] Perintah reboot ke ${ws.ipAddress} dilaporkan:`, err.message);
+          });
+        }
+
         await prisma.workstation.update({
           where: { id: ws.id },
           data: { powerStatus: 'ONLINE', lastHeartbeat: new Date() },

@@ -17,14 +17,12 @@ export const ManageLabsModal: React.FC<ManageLabsModalProps> = ({ isOpen, onClos
 
   // Form states
   const [labName, setLabName] = useState('');
-  const [subnetBroadcast, setSubnetBroadcast] = useState('192.168.1.255');
   const [totalCapacity, setTotalCapacity] = useState(30);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const startEdit = (lab: Laboratory) => {
     setEditingLabId(lab.id);
     setLabName(lab.labName);
-    setSubnetBroadcast(lab.subnetBroadcast);
     setTotalCapacity(lab.totalCapacity);
     setIsAdding(false);
     setErrorMsg(null);
@@ -34,7 +32,6 @@ export const ManageLabsModal: React.FC<ManageLabsModalProps> = ({ isOpen, onClos
     setEditingLabId(null);
     setIsAdding(false);
     setLabName('');
-    setSubnetBroadcast('192.168.1.255');
     setTotalCapacity(30);
     setErrorMsg(null);
   };
@@ -42,8 +39,8 @@ export const ManageLabsModal: React.FC<ManageLabsModalProps> = ({ isOpen, onClos
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
-    if (!labName.trim() || !subnetBroadcast.trim()) {
-      setErrorMsg('Nama Lab dan Subnet Broadcast wajib diisi');
+    if (!labName.trim()) {
+      setErrorMsg('Nama Ruang Lab wajib diisi');
       return;
     }
 
@@ -51,14 +48,14 @@ export const ManageLabsModal: React.FC<ManageLabsModalProps> = ({ isOpen, onClos
       if (editingLabId) {
         await updateLab(editingLabId, {
           labName: labName.trim(),
-          subnetBroadcast: subnetBroadcast.trim(),
+          subnetBroadcast: '255.255.255.255',
           totalCapacity: Number(totalCapacity),
         });
         cancelEdit();
       } else {
         await createLab({
           labName: labName.trim(),
-          subnetBroadcast: subnetBroadcast.trim(),
+          subnetBroadcast: '255.255.255.255',
           totalCapacity: Number(totalCapacity),
         });
         cancelEdit();
@@ -106,7 +103,6 @@ export const ManageLabsModal: React.FC<ManageLabsModalProps> = ({ isOpen, onClos
               onClick={() => {
                 setIsAdding(true);
                 setLabName('');
-                setSubnetBroadcast('192.168.1.255');
                 setTotalCapacity(30);
               }}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white transition-all shadow-glow-teal"
@@ -149,41 +145,25 @@ export const ManageLabsModal: React.FC<ManageLabsModalProps> = ({ isOpen, onClos
               <input
                 type="text"
                 required
-                placeholder="Contoh: Lab Komputasi A-101"
+                placeholder="Contoh: Lab DKV 1 atau Lab Multimedia"
                 value={labName}
                 onChange={(e) => setLabName(e.target.value)}
-                className="w-full bg-surface-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                className="w-full bg-surface-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 font-medium"
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                  Subnet Broadcast WoL <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Contoh: 192.168.1.255"
-                  value={subnetBroadcast}
-                  onChange={(e) => setSubnetBroadcast(e.target.value)}
-                  className="w-full bg-surface-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-brand-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                  Kapasitas Meja (Unit)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={totalCapacity}
-                  onChange={(e) => setTotalCapacity(Number(e.target.value))}
-                  className="w-full bg-surface-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500"
-                />
-              </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                Kapasitas Meja / Unit Komputer
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="200"
+                value={totalCapacity}
+                onChange={(e) => setTotalCapacity(Number(e.target.value))}
+                className="w-full bg-surface-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
+              />
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
@@ -238,7 +218,7 @@ export const ManageLabsModal: React.FC<ManageLabsModalProps> = ({ isOpen, onClos
                       )}
                     </div>
                     <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                      Broadcast: <span className="text-teal-400">{lab.subnetBroadcast}</span> · Kapasitas: {lab.totalCapacity} unit
+                      Kapasitas: <span className="text-teal-300 font-semibold">{lab.totalCapacity} unit meja komputer</span>
                     </div>
                   </div>
                 </div>
@@ -254,7 +234,7 @@ export const ManageLabsModal: React.FC<ManageLabsModalProps> = ({ isOpen, onClos
                   )}
                   <button
                     onClick={() => startEdit(lab)}
-                    title="Sunting data lab"
+                    title="Sunting nama lab"
                     className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
                   >
                     <Edit2 className="w-3.5 h-3.5" />

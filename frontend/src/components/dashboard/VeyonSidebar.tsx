@@ -46,7 +46,7 @@ export const VeyonSidebar: React.FC<VeyonSidebarProps> = ({
     setActiveRemoteSession,
   } = useLabStore();
 
-  const isAdmin = user?.role === 'SUPERADMIN';
+  const isAdmin = user?.role === 'SUPERADMIN' || user?.role === 'INSTRUCTOR';
 
   // State ekspansi per lab (default lab aktif terbuka)
   const [expandedLabIds, setExpandedLabIds] = useState<number[]>([1, 2]);

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { exec } from 'child_process';
 import { AuditService } from '../services/auditService';
+import { HeartbeatService } from '../services/heartbeatService';
 
 const prisma = new PrismaClient();
 
@@ -59,6 +61,9 @@ export class WorkstationController {
         },
       });
 
+      // Jalankan diagnosis langsung
+      const diag = await HeartbeatService.diagnoseWorkstation(workstation.id);
+
       if (req.user) {
         await AuditService.log(
           req.user.id,
@@ -69,7 +74,7 @@ export class WorkstationController {
         );
       }
 
-      res.status(201).json({ success: true, workstation });
+      res.status(201).json({ success: true, workstation: { ...workstation, diagnostics: diag } });
     } catch (err: any) {
       console.error('[WorkstationController] Galat create:', err);
       res.status(500).json({ success: false, message: err.message || 'Gagal mendaftarkan workstation' });
@@ -122,11 +127,14 @@ export class WorkstationController {
         },
       });
 
+      // Jalankan diagnosis langsung untuk data yang diperbarui
+      const diag = await HeartbeatService.diagnoseWorkstation(updated.id);
+
       if (req.user) {
         await AuditService.log(req.user.id, 'UPDATE_WORKSTATION', 'SUCCESS', id, req.body);
       }
 
-      res.json({ success: true, workstation: updated });
+      res.json({ success: true, workstation: { ...updated, diagnostics: diag } });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message || 'Gagal memperbarui data workstation' });
     }
@@ -153,6 +161,81 @@ export class WorkstationController {
       res.json({ success: true, message: `Workstation ${existing.hostname} berhasil dihapus` });
     } catch (err: any) {
       res.status(500).json({ success: false, message: 'Gagal menghapus workstation' });
+    }
+  }
+
+  /**
+   * Menguji ping dan port workstation tertentu secara instan (On-demand Ping & Diagnosis)
+   */
+  public static async pingWorkstation(req: Request, res: Response): Promise<void> {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const existing = await prisma.workstation.findUnique({ where: { id } });
+
+      if (!existing) {
+        res.status(404).json({ success: false, message: 'Workstation tidak ditemukan' });
+        return;
+      }
+
+      const diagnostics = await HeartbeatService.diagnoseWorkstation(id);
+      const refreshedWs = await prisma.workstation.findUnique({ where: { id } });
+
+      res.json({
+        success: true,
+        workstation: {
+          ...refreshedWs,
+          diagnostics,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal melakukan diagnosis: ' + err.message });
+    }
+  }
+
+  /**
+   * Memindai subnet lokal untuk menemukan komputer yang sedang aktif
+   */
+  public static async scanNetwork(req: Request, res: Response): Promise<void> {
+    try {
+      const subnet = (req.body.subnet as string) || '10.10.10';
+      const activeDevices: Array<{ ip: string; isRdpOpen: boolean; isVncOpen: boolean }> = [];
+
+      const promises: Promise<void>[] = [];
+      const totalHosts = 254;
+
+      for (let i = 1; i <= totalHosts; i++) {
+        const ip = `${subnet}.${i}`;
+        const p = new Promise<void>((resolve) => {
+          exec(`ping -n 1 -w 250 ${ip}`, { windowsHide: true }, async (err, stdout) => {
+            if (stdout && (stdout.includes('TTL=') || stdout.includes('ttl='))) {
+              const rdpCheck = await HeartbeatService.probeHost(ip, 3389, 400);
+              const vncCheck = await HeartbeatService.probeHost(ip, 5900, 400);
+              activeDevices.push({
+                ip,
+                isRdpOpen: rdpCheck.open,
+                isVncOpen: vncCheck.open,
+              });
+            }
+            resolve();
+          });
+        });
+        promises.push(p);
+      }
+
+      await Promise.all(promises);
+
+      res.json({
+        success: true,
+        subnet,
+        count: activeDevices.length,
+        devices: activeDevices.sort((a, b) => {
+          const numA = parseInt(a.ip.split('.')[3], 10);
+          const numB = parseInt(b.ip.split('.')[3], 10);
+          return numA - numB;
+        }),
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: 'Gagal memindai jaringan: ' + err.message });
     }
   }
 

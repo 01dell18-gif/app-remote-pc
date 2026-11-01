@@ -12,16 +12,12 @@ export interface User {
   isActive?: boolean;
 }
 
-export interface Laboratory {
-  id: number;
-  labName: string;
-  subnetBroadcast: string;
-  totalCapacity: number;
-  createdAt: string;
-  _count?: {
-    workstations: number;
-  };
-  workstations?: Workstation[];
+export interface WorkstationDiagnostics {
+  pingSuccess: boolean;
+  portOpen: boolean;
+  latencyMs: number | null;
+  lastCheck: string;
+  message: string;
 }
 
 export interface Workstation {
@@ -36,6 +32,19 @@ export interface Workstation {
   connectionMode: ConnectionMode;
   powerStatus: PowerStatus;
   lastHeartbeat?: string | null;
+  diagnostics?: WorkstationDiagnostics | null;
+}
+
+export interface Laboratory {
+  id: number;
+  labName: string;
+  subnetBroadcast: string;
+  totalCapacity: number;
+  createdAt: string;
+  _count?: {
+    workstations: number;
+  };
+  workstations?: Workstation[];
 }
 
 export interface AuditTrail {

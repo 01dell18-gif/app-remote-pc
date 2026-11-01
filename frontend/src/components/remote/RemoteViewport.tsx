@@ -3,6 +3,7 @@ import { RemoteSessionInfo } from '../../types';
 import { FloatingToolbar } from './FloatingToolbar';
 import { ClipboardModal } from './ClipboardModal';
 import { useLabStore } from '../../stores/labStore';
+import { api } from '../../services/api';
 import { WifiOff } from 'lucide-react';
 
 interface RemoteViewportProps {
@@ -98,250 +99,234 @@ export const RemoteViewport: React.FC<RemoteViewportProps> = ({ session, onClose
       ctx.fillRect(ic.x + 14, ic.y + 14, 20, 20);
 
       ctx.fillStyle = '#f8fafc';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = '10px Inter, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(ic.name, ic.x + 24, ic.y + 64);
+      ctx.fillText(ic.name, ic.x + 24, ic.y + 62);
     });
 
-    // 3. Jendela Terminal Aktif
+    // 3. Jendela Aplikasi Aktif (Terminal Lab)
     if (state.isTerminalOpen) {
-      const winX = 140;
-      const winY = 60;
-      const winW = 860;
-      const winH = 500;
+      const termX = 220;
+      const termY = 80;
+      const termW = 840;
+      const termH = 500;
 
       // Bayangan jendela
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
       ctx.shadowBlur = 30;
       ctx.shadowOffsetY = 15;
 
-      // Background jendela terminal
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      // Header Jendela Terminal
+      ctx.fillStyle = '#0f172a';
       ctx.beginPath();
-      ctx.roundRect(winX, winY, winW, winH, 12);
+      ctx.roundRect(termX, termY, termW, 36, [12, 12, 0, 0]);
       ctx.fill();
 
-      // Reset shadow
+      // Reset bayangan untuk konten dalam
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
 
-      // Border jendela
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      // Tombol jendela Mac/Linux style
+      const dots = ['#ef4444', '#f59e0b', '#22c55e'];
+      dots.forEach((color, i) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(termX + 20 + i * 18, termY + 18, 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
 
-      // Title bar
-      ctx.fillStyle = '#1e293b';
-      ctx.beginPath();
-      ctx.roundRect(winX, winY, winW, 36, [12, 12, 0, 0]);
-      ctx.fill();
-
-      // Tombol jendela Mac/Windows dots
-      ctx.fillStyle = '#f43f5e';
-      ctx.beginPath();
-      ctx.arc(winX + 20, winY + 18, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#eab308';
-      ctx.beginPath();
-      ctx.arc(winX + 36, winY + 18, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#22c55e';
-      ctx.beginPath();
-      ctx.arc(winX + 52, winY + 18, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Title text
+      // Judul Terminal
       ctx.fillStyle = '#94a3b8';
-      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.font = 'bold 11px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(
-        `bash - ${session.workstation.hostname} [${session.workstation.ipAddress}] - NamedPipe: SessEnvPublicRpc`,
-        winX + winW / 2,
-        winY + 22
+        `Administrator: Command Prompt - ${session.workstation.hostname} (${session.workstation.ipAddress})`,
+        termX + termW / 2,
+        termY + 22
       );
 
-      // Terminal content
-      ctx.textAlign = 'left';
-      ctx.font = '13px JetBrains Mono, monospace';
-      let textY = winY + 65;
+      // Body Jendela Terminal
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.95)';
+      ctx.beginPath();
+      ctx.roundRect(termX, termY + 36, termW, termH - 36, [0, 0, 12, 12]);
+      ctx.fill();
 
+      // Border halus jendela
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(termX, termY, termW, termH);
+
+      // Isi Log Terminal
+      ctx.font = '12px JetBrains Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#38bdf8';
+
+      let lineY = termY + 65;
       const logs = state.terminalLogs || [];
-      const visibleLogs = logs.slice(-18);
+      const visibleLogs = logs.slice(-20);
 
       visibleLogs.forEach((line: string) => {
-        if (line.startsWith('Session connected') || line.startsWith('FYJ Channel')) {
-          ctx.fillStyle = '#38bdf8';
-        } else if (line.startsWith('[System Event]')) {
-          ctx.fillStyle = '#f59e0b';
-        } else if (line.startsWith('[Clipboard Sync]')) {
-          ctx.fillStyle = '#2dd4bf';
-        } else if (line.includes('@')) {
+        if (line.startsWith('>') || line.startsWith('C:\\')) {
           ctx.fillStyle = '#4ade80';
+        } else if (line.includes('ERROR') || line.includes('FAILED')) {
+          ctx.fillStyle = '#f87171';
+        } else if (line.includes('WARNING') || line.includes('SHORTCUT')) {
+          ctx.fillStyle = '#facc15';
         } else {
           ctx.fillStyle = '#cbd5e1';
         }
-        ctx.fillText(line, winX + 24, textY);
-        textY += 22;
+
+        ctx.fillText(line, termX + 24, lineY);
+        lineY += 20;
       });
 
-      // Cursor kerdip
+      // Kursor berkedip terminal
       if (Math.floor(Date.now() / 500) % 2 === 0) {
         ctx.fillStyle = '#38bdf8';
-        ctx.fillRect(winX + 24 + ctx.measureText(visibleLogs[visibleLogs.length - 1] || '').width + 2, textY - 36, 8, 16);
+        ctx.fillRect(termX + 24 + ctx.measureText('> ').width, lineY - 14, 8, 15);
       }
     }
 
-    // 4. Start Menu jika terbuka
+    // 4. Start Menu Windows jika terbuka
     if (state.isStartMenuOpen) {
-      const menuX = 20;
-      const menuY = 280;
-      const menuW = 340;
-      const menuH = 390;
+      const smX = 10;
+      const smY = V_HEIGHT - 480;
+      const smW = 340;
+      const smH = 430;
 
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-      ctx.shadowBlur = 25;
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.98)';
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
       ctx.beginPath();
-      ctx.roundRect(menuX, menuY, menuW, menuH, 16);
+      ctx.roundRect(smX, smY, smW, smH, 16);
       ctx.fill();
-      ctx.shadowColor = 'transparent';
 
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.strokeRect(smX, smY, smW, smH);
 
       ctx.fillStyle = '#f8fafc';
       ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('Aplikasi Laboratorium', menuX + 20, menuY + 35);
+      ctx.fillText('FYJ Lab Workstation', smX + 20, smY + 36);
 
-      const menuItems = [
-        'Visual Studio Code',
-        'Wireshark Packet Analyzer',
-        'Cisco Packet Tracer',
-        'PostgreSQL pgAdmin 4',
+      ctx.font = '11px Inter, sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`${session.workstation.hostname} · ${session.workstation.ipAddress}`, smX + 20, smY + 54);
+
+      // Garis pemisah
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.beginPath();
+      ctx.moveTo(smX + 20, smY + 68);
+      ctx.lineTo(smX + smW - 20, smY + 68);
+      ctx.stroke();
+
+      // Daftar item start menu
+      const startItems = [
         'Command Prompt (Admin)',
-        'Pengaturan Jaringan & Adapter',
+        'Windows PowerShell',
+        'Visual Studio Code',
+        'Google Chrome',
+        'File Explorer',
+        'Task Manager',
+        'Network Settings',
       ];
 
-      menuItems.forEach((item, idx) => {
-        const itemY = menuY + 65 + idx * 45;
+      startItems.forEach((item, idx) => {
+        const itemY = smY + 95 + idx * 36;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
         ctx.beginPath();
-        ctx.roundRect(menuX + 15, itemY - 18, menuW - 30, 36, 8);
+        ctx.roundRect(smX + 16, itemY - 16, smW - 32, 30, 8);
         ctx.fill();
 
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillRect(menuX + 25, itemY - 8, 16, 16);
-
         ctx.fillStyle = '#e2e8f0';
-        ctx.font = '12px Inter, sans-serif';
-        ctx.fillText(item, menuX + 52, itemY + 4);
+        ctx.font = '11px Inter, sans-serif';
+        ctx.fillText(item, smX + 32, itemY + 4);
       });
     }
 
-    // 5. Taskbar Bawah
-    const tbH = 48;
-    const tbY = V_HEIGHT - tbH;
-    ctx.fillStyle = 'rgba(3, 7, 18, 0.94)';
-    ctx.fillRect(0, tbY, V_WIDTH, tbH);
+    // 5. Windows Taskbar (Bawah)
+    const taskbarH = 46;
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+    ctx.fillRect(0, V_HEIGHT - taskbarH, V_WIDTH, taskbarH);
+
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, tbY);
-    ctx.lineTo(V_WIDTH, tbY);
+    ctx.moveTo(0, V_HEIGHT - taskbarH);
+    ctx.lineTo(V_WIDTH, V_HEIGHT - taskbarH);
     ctx.stroke();
 
-    // Start Button (Windows logo / Apps)
-    ctx.fillStyle = state.isStartMenuOpen ? '#0284c7' : '#0369a1';
+    // Tombol Start Menu
+    ctx.fillStyle = state.isStartMenuOpen ? '#0284c7' : 'rgba(255, 255, 255, 0.1)';
     ctx.beginPath();
-    ctx.roundRect(14, tbY + 6, 36, 36, 8);
+    ctx.roundRect(12, V_HEIGHT - 38, 32, 30, 8);
     ctx.fill();
 
-    // Windows / App icon
+    // Ikon Logo Windows 4 kotak
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(22, tbY + 14, 9, 9);
-    ctx.fillRect(33, tbY + 14, 9, 9);
-    ctx.fillRect(22, tbY + 25, 9, 9);
-    ctx.fillRect(33, tbY + 25, 9, 9);
+    ctx.fillRect(20, V_HEIGHT - 30, 6, 6);
+    ctx.fillRect(28, V_HEIGHT - 30, 6, 6);
+    ctx.fillRect(20, V_HEIGHT - 22, 6, 6);
+    ctx.fillRect(28, V_HEIGHT - 22, 6, 6);
 
-    // Taskbar pinned icons
-    const tbIcons = ['Terminal', 'Code', 'Chrome', 'Files'];
-    tbIcons.forEach((_, i) => {
+    // Ikon Aplikasi di Taskbar
+    const tbApps = ['#22c55e', '#38bdf8', '#eab308'];
+    tbApps.forEach((c, idx) => {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
       ctx.beginPath();
-      ctx.roundRect(60 + i * 44, tbY + 6, 36, 36, 8);
+      ctx.roundRect(52 + idx * 38, V_HEIGHT - 38, 32, 30, 8);
       ctx.fill();
 
-      ctx.fillStyle = '#38bdf8';
-      ctx.beginPath();
-      ctx.arc(78 + i * 44, tbY + 24, 7, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillStyle = c;
+      ctx.fillRect(62 + idx * 38, V_HEIGHT - 28, 12, 12);
     });
 
-    // Clock and System Tray di kanan taskbar
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = '12px Inter, sans-serif';
+    // Indikator Jam dan Tanggal di Pojok Kanan Taskbar
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const dateStr = now.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 11px Inter, sans-serif';
     ctx.textAlign = 'right';
-    const timeDisplay = state.currentTime || new Date().toLocaleTimeString();
-    ctx.fillText(timeDisplay, V_WIDTH - 20, tbY + 22);
+    ctx.fillText(timeStr, V_WIDTH - 16, V_HEIGHT - 24);
 
-    ctx.font = '10px Inter, sans-serif';
-    ctx.fillStyle = '#64748b';
-    ctx.fillText(new Date().toLocaleDateString(), V_WIDTH - 20, tbY + 36);
+    ctx.font = '9px Inter, sans-serif';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(dateStr, V_WIDTH - 16, V_HEIGHT - 12);
 
-    // 6. Toast Notification jika shortcut disuntikkan
-    const toast = shortcutToast || state.shortcutToast;
-    if (toast) {
-      ctx.fillStyle = 'rgba(20, 184, 166, 0.95)';
-      ctx.beginPath();
-      ctx.roundRect(V_WIDTH / 2 - 160, 40, 320, 38, 12);
-      ctx.fill();
-
-      ctx.fillStyle = '#042f2e';
-      ctx.font = 'bold 12px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(toast, V_WIDTH / 2, 64);
-    }
-
-    // 7. Render Kursor Mouse Jarak Jauh
+    // Kursor Mouse Remote
     if (state.mouseX && state.mouseY) {
       ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(state.mouseX, state.mouseY);
-      ctx.lineTo(state.mouseX, state.mouseY + 16);
-      ctx.lineTo(state.mouseX + 4, state.mouseY + 12);
-      ctx.lineTo(state.mouseX + 9, state.mouseY + 21);
-      ctx.lineTo(state.mouseX + 12, state.mouseY + 19);
-      ctx.lineTo(state.mouseX + 7, state.mouseY + 11);
-      ctx.lineTo(state.mouseX + 12, state.mouseY + 11);
+      ctx.lineTo(state.mouseX + 12, state.mouseY + 12);
+      ctx.lineTo(state.mouseX + 5, state.mouseY + 12);
+      ctx.lineTo(state.mouseX, state.mouseY + 18);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
     }
-  }, [session.workstation, shortcutToast]);
+  }, [session.workstation.osFamily, session.workstation.hostname, session.workstation.ipAddress]);
 
-  // Loop requestAnimationFrame untuk render kanvas super mulus
+  // Loop rendering canvas
   useEffect(() => {
-    let animId: number;
+    let animationFrameId: number;
     const loop = () => {
       renderCanvas();
-      animId = requestAnimationFrame(loop);
+      animationFrameId = requestAnimationFrame(loop);
     };
-    animId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(animId);
+    loop();
+    return () => cancelAnimationFrame(animationFrameId);
   }, [renderCanvas]);
 
-  // Inisialisasi WebSocket Tunnel
+  // Koneksi WebSocket ke Gateway Backend
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     const wsUrl = `${protocol}//${host}/api/v1/tunnel/remote?token=${encodeURIComponent(session.token)}`;
 
-    console.log('[RemoteViewport] Membuka WebSocket:', wsUrl);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -352,37 +337,32 @@ export const RemoteViewport: React.FC<RemoteViewportProps> = ({ session, onClose
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'FRAME_UPDATE') {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'PONG') {
+          const latency = Date.now() - msg.timestamp;
+          setRttMs(latency);
+        } else if (msg.type === 'STATE_UPDATE') {
           serverStateRef.current = {
             ...serverStateRef.current,
-            ...data.state,
+            ...msg.payload,
           };
-          if (data.state.clipboard) {
-            setRemoteClipboard(data.state.clipboard);
-          }
-        } else if (data.type === 'PONG') {
-          const latency = Date.now() - data.clientTime;
-          setRttMs(latency);
+        } else if (msg.type === 'CLIPBOARD') {
+          setRemoteClipboard(msg.payload.text || '');
         }
-      } catch (err) {
-        // Data guacd mentah jika ada
+      } catch {
+        // Abaikan data biner / raw stream guacd
       }
     };
 
-    ws.onerror = (err) => {
-      console.error('[RemoteViewport] WebSocket error:', err);
-      setErrorMsg('Gagal terhubung ke WebSocket Gateway');
+    ws.onerror = () => {
+      setErrorMsg('Gagal menghubungkan WebSocket gateway. Memeriksa ketersediaan host...');
     };
 
-    ws.onclose = (event) => {
+    ws.onclose = () => {
       setConnected(false);
-      if (event.code === 4401 || event.code === 4001) {
-        setErrorMsg('Token sesi kedaluwarsa atau tidak valid');
-      }
     };
 
-    // PING interval untuk ukur latensi RTT
+    // Ping periodik untuk mengukur latensi RTT
     const pingInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'PING', timestamp: Date.now() }));
@@ -395,7 +375,7 @@ export const RemoteViewport: React.FC<RemoteViewportProps> = ({ session, onClose
     };
   }, [session.token]);
 
-  // Konversi koordinat mouse event peramban ke koordinat kanvas virtual (1280x720)
+  // Konversi koordinat event mouse peramban ke koordinat kanvas virtual 1280x720
   const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -409,94 +389,84 @@ export const RemoteViewport: React.FC<RemoteViewportProps> = ({ session, onClose
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const { x, y } = getCanvasCoords(e);
-    serverStateRef.current.mouseX = x;
-    serverStateRef.current.mouseY = y;
+    const coords = getCanvasCoords(e);
+    serverStateRef.current.mouseX = coords.x;
+    serverStateRef.current.mouseY = coords.y;
 
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'MOUSE_MOVE', x, y }));
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'MOUSE_MOVE',
+          payload: { x: coords.x, y: coords.y },
+        })
+      );
     }
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const { x, y } = getCanvasCoords(e);
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    const coords = getCanvasCoords(e);
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
           type: 'MOUSE_CLICK',
-          button: e.button, // 0: left, 1: middle, 2: right
-          x,
-          y,
+          payload: { x: coords.x, y: coords.y, button: e.button },
         })
       );
     }
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault(); // Cegah klik kanan default browser
-    const { x, y } = getCanvasCoords(e as any);
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    e.preventDefault();
+  };
+
+  const handleInjectShortcut = (shortcut: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
-          type: 'MOUSE_CLICK',
-          button: 2,
-          x,
-          y,
+          type: 'SHORTCUT',
+          payload: { key: shortcut },
         })
       );
     }
-  };
-
-  // Keyboard capture
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Abaikan jika fokus pada input modal clipboard
-      if ((e.target as HTMLElement).tagName === 'TEXTAREA' || (e.target as HTMLElement).tagName === 'INPUT') {
-        return;
-      }
-
-      // Cegah beberapa tombol khusus browser
-      if (['Tab', 'Alt', 'F5'].includes(e.key)) {
-        e.preventDefault();
-      }
-
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({
-            type: 'KEY_DOWN',
-            key: e.key,
-            code: e.code,
-            ctrl: e.ctrlKey,
-            alt: e.altKey,
-            shift: e.shiftKey,
-          })
-        );
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  const handleInjectShortcut = (shortcut: string) => {
-    setShortcutToast(`Tombol Terkirim: [${shortcut}]`);
+    setShortcutToast(`Tombol kombinasi '${shortcut}' berhasil dikirim.`);
     setTimeout(() => setShortcutToast(null), 2500);
-
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'SHORTCUT', shortcut }));
-    }
   };
 
   const handleSendClipboard = (text: string) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'CLIPBOARD_SET', text }));
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'CLIPBOARD',
+          payload: { text },
+        })
+      );
+    }
+    setRemoteClipboard(text);
+  };
+
+  const handleLaunchMstsc = async () => {
+    try {
+      const res = await api.launchMstsc(session.workstation.id);
+      setShortcutToast(res.message);
+      setTimeout(() => setShortcutToast(null), 4000);
+    } catch (err: any) {
+      alert(`Gagal meluncurkan MSTSC: ${err.message}`);
     }
   };
 
+  const handleDownloadRdp = () => {
+    const url = api.getRdpDownloadUrl(session.workstation.id);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${session.workstation.hostname}.rdp`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const toggleFullscreen = () => {
-    if (!containerRef.current) return;
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      containerRef.current?.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
     } else {
       document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
     }
@@ -525,7 +495,16 @@ export const RemoteViewport: React.FC<RemoteViewportProps> = ({ session, onClose
         onInjectShortcut={handleInjectShortcut}
         onOpenClipboard={() => setClipboardOpen(true)}
         onDisconnect={handleDisconnect}
+        onLaunchMstsc={handleLaunchMstsc}
+        onDownloadRdp={handleDownloadRdp}
       />
+
+      {/* Toast Notifikasi Shortcut */}
+      {shortcutToast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 border border-cyan-500/60 text-cyan-200 px-4 py-2 rounded-xl text-xs shadow-2xl font-semibold animate-in fade-in duration-200">
+          {shortcutToast}
+        </div>
+      )}
 
       {/* Main Screen HTML5 Canvas */}
       <div className="relative w-full h-full flex items-center justify-center p-2 canvas-crt">
@@ -549,12 +528,20 @@ export const RemoteViewport: React.FC<RemoteViewportProps> = ({ session, onClose
             <p className="text-xs text-slate-400 max-w-sm">
               {errorMsg || 'Koneksi ke gateway guacd telah berakhir atau ditutup.'}
             </p>
-            <button
-              onClick={handleDisconnect}
-              className="mt-2 px-4 py-2 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-500 text-white"
-            >
-              Kembali ke Dasbor Lab
-            </button>
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                onClick={handleLaunchMstsc}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-cyan-700 hover:bg-cyan-600 text-white"
+              >
+                Buka dengan MSTSC Windows
+              </button>
+              <button
+                onClick={handleDisconnect}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white"
+              >
+                Kembali ke Dasbor Lab
+              </button>
+            </div>
           </div>
         )}
       </div>
