@@ -140,28 +140,38 @@ export class GuacTunnel {
     );
 
     let isAgentConnected = false;
+    let agentBaseUrl = `http://${targetIp}:5901`;
 
     // Periksa apakah agen penangkap layar aktif di komputer target (Port 5901)
     const checkAgent = async () => {
       if (ws.readyState !== WebSocket.OPEN) return;
-      try {
-        const resp = await fetch(`http://${targetIp}:5901/status`, { signal: AbortSignal.timeout(600) });
-        if (resp.ok) {
-          isAgentConnected = true;
-          const data = (await resp.json()) as any;
-          ws.send(
-            JSON.stringify({
-              type: 'AGENT_CONNECTED',
-              payload: {
-                targetName,
-                targetIp,
-                resolution: data.resolution || { width: 1920, height: 1080 },
-              },
-            })
-          );
-          return;
-        }
-      } catch {}
+      const candidateUrls = [
+        `http://${targetIp}:5901`,
+        `http://127.0.0.1:5901`,
+        `http://localhost:5901`,
+      ];
+
+      for (const url of candidateUrls) {
+        try {
+          const resp = await fetch(`${url}/status`, { signal: AbortSignal.timeout(500) });
+          if (resp.ok) {
+            isAgentConnected = true;
+            agentBaseUrl = url;
+            const data = (await resp.json()) as any;
+            ws.send(
+              JSON.stringify({
+                type: 'AGENT_CONNECTED',
+                payload: {
+                  targetName,
+                  targetIp,
+                  resolution: data.resolution || { width: 1920, height: 1080 },
+                },
+              })
+            );
+            return;
+          }
+        } catch {}
+      }
 
       isAgentConnected = false;
       ws.send(
@@ -187,29 +197,33 @@ export class GuacTunnel {
         return;
       }
 
-      if (isAgentConnected) {
-        try {
-          const screenResp = await fetch(`http://${targetIp}:5901/screen`, { signal: AbortSignal.timeout(800) });
-          if (screenResp.ok) {
-            const arrayBuffer = await screenResp.arrayBuffer();
-            const base64 = Buffer.from(arrayBuffer).toString('base64');
-            const w = parseInt(screenResp.headers.get('x-screen-width') || '1920', 10);
-            const h = parseInt(screenResp.headers.get('x-screen-height') || '1080', 10);
+      if (!isAgentConnected) {
+        await checkAgent();
+        return;
+      }
 
-            ws.send(
-              JSON.stringify({
-                type: 'REAL_SCREEN_FRAME',
-                timestamp: Date.now(),
-                data: `data:image/jpeg;base64,${base64}`,
-                width: w,
-                height: h,
-              })
-            );
-          }
-        } catch {
+      try {
+        const screenResp = await fetch(`${agentBaseUrl}/screen`, { signal: AbortSignal.timeout(800) });
+        if (screenResp.ok) {
+          const arrayBuffer = await screenResp.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          const w = parseInt(screenResp.headers.get('x-screen-width') || '1920', 10);
+          const h = parseInt(screenResp.headers.get('x-screen-height') || '1080', 10);
+
+          ws.send(
+            JSON.stringify({
+              type: 'REAL_SCREEN_FRAME',
+              timestamp: Date.now(),
+              data: `data:image/jpeg;base64,${base64}`,
+              width: w,
+              height: h,
+            })
+          );
+        } else {
           isAgentConnected = false;
-          checkAgent();
         }
+      } catch {
+        isAgentConnected = false;
       }
     }, 120);
 
@@ -219,13 +233,13 @@ export class GuacTunnel {
         const msg = JSON.parse(raw.toString('utf8'));
 
         if (msg.type === 'PING') {
-          ws.send(JSON.stringify({ type: 'PONG', clientTime: msg.timestamp, serverTime: Date.now() }));
+          ws.send(JSON.stringify({ type: 'PONG', timestamp: msg.timestamp || msg.clientTime || Date.now() }));
           return;
         }
 
         if (isAgentConnected && (msg.type === 'MOUSE_MOVE' || msg.type === 'MOUSE_CLICK')) {
           const inputType = msg.type === 'MOUSE_CLICK' ? 'click' : 'move';
-          fetch(`http://${targetIp}:5901/input`, {
+          fetch(`${agentBaseUrl}/input`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

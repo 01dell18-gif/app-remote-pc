@@ -4,7 +4,7 @@ import { FloatingToolbar } from './FloatingToolbar';
 import { ClipboardModal } from './ClipboardModal';
 import { useLabStore } from '../../stores/labStore';
 import { api } from '../../services/api';
-import { WifiOff } from 'lucide-react';
+import { WifiOff, Monitor, Download } from 'lucide-react';
 
 interface RemoteViewportProps {
   session: RemoteSessionInfo;
@@ -25,6 +25,7 @@ export const RemoteViewport: React.FC<RemoteViewportProps> = ({ session, onClose
   const [remoteClipboard, setRemoteClipboard] = useState('Remote text ready.');
   const [shortcutToast, setShortcutToast] = useState<string | null>(null);
   const realScreenImageRef = useRef<HTMLImageElement | null>(null);
+  const [hasRealScreen, setHasRealScreen] = useState(false);
 
   // Dekstop state dari server
   const serverStateRef = useRef<any>({
@@ -143,11 +144,13 @@ export const RemoteViewport: React.FC<RemoteViewportProps> = ({ session, onClose
           const img = new Image();
           img.onload = () => {
             realScreenImageRef.current = img;
+            setHasRealScreen(true);
           };
           img.src = msg.data;
         } else if (msg.type === 'PONG') {
-          const latency = Date.now() - msg.timestamp;
-          setRttMs(latency);
+          const sent = msg.timestamp || msg.clientTime;
+          const latency = sent ? Date.now() - sent : 1;
+          setRttMs(latency > 0 ? latency : 1);
         } else if (msg.type === 'STATE_UPDATE') {
           serverStateRef.current = {
             ...serverStateRef.current,
@@ -324,6 +327,53 @@ export const RemoteViewport: React.FC<RemoteViewportProps> = ({ session, onClose
           onContextMenu={handleContextMenu}
           className="max-w-full max-h-full object-contain aspect-video shadow-2xl rounded-lg cursor-crosshair border border-slate-800"
         />
+
+        {/* Overlay interaktif jika belum ada streaming layar fisik */}
+        {connected && !hasRealScreen && (
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-10 animate-in fade-in duration-200">
+            <div className="max-w-md w-full bg-surface-900 border border-slate-750 rounded-2xl p-6 shadow-2xl text-center space-y-4">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shadow-lg">
+                <Monitor className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white tracking-wide">
+                  Remote Layar: {session.workstation.hostname}
+                </h3>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                  IP Target: {session.workstation.ipAddress}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 text-left space-y-2">
+                <span className="text-emerald-400 font-semibold block">Kontrol Layar Perangkat Asli:</span>
+                <p className="text-[11px] text-slate-400">
+                  Untuk mengendalikan komputer fisik ini dengan layar penuh, performa 60 FPS, dan audio lengkap:
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+                <button
+                  onClick={handleLaunchMstsc}
+                  className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95"
+                >
+                  <Monitor className="w-4 h-4" />
+                  <span>Buka MSTSC Windows</span>
+                </button>
+                <button
+                  onClick={handleDownloadRdp}
+                  className="w-full sm:w-auto py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Unduh .RDP</span>
+                </button>
+              </div>
+
+              <p className="text-[10px] text-slate-500 pt-2 border-t border-slate-800 font-mono">
+                Menunggu transmisi layar... Layar fisik akan langsung tampil saat agen aktif.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Connection status overlay jika terputus */}
         {!connected && (

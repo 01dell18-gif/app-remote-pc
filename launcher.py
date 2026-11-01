@@ -155,7 +155,16 @@ def run_server_mode():
         kill_process_on_port(FRONTEND_PORT)
         time.sleep(1)
 
-    print("\n[*] Menjalankan Backend Server (Port 4000)...")
+    # Jalankan Real Hardware Screen Agent lokal (Port 5901)
+    print("\n[*] Menjalankan Real Hardware Screen Agent lokal (Port 5901)...")
+    agent_proc = subprocess.Popen(
+        [sys.executable, os.path.join(ROOT_DIR, "client_agent.py")],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
+    )
+
+    print("[*] Menjalankan Backend Server (Port 4000)...")
     backend_proc = subprocess.Popen(
         [NPM_CMD, "run", "dev"],
         cwd=BACKEND_DIR,
@@ -223,6 +232,7 @@ def run_server_mode():
     print("\n[*] Menghentikan seluruh proses backend & frontend...")
     kill_process_on_port(BACKEND_PORT)
     kill_process_on_port(FRONTEND_PORT)
+    kill_process_on_port(5901)
     try:
         backend_proc.terminate()
         frontend_proc.terminate()
