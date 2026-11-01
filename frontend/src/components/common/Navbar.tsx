@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Monitor,
   Zap,
   Power,
   Lock,
@@ -77,9 +76,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Brand Logo */}
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 via-teal-500 to-emerald-400 flex items-center justify-center shadow-glow-teal text-slate-950">
-              <Monitor className="w-4 h-4 stroke-[2.5]" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="FYJ Channel Logo"
+              className="w-10 h-10 rounded-full object-contain shadow-glow-teal border border-slate-700/80 bg-slate-900 p-0.5 hover:scale-105 transition-transform"
+            />
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-white text-sm sm:text-base tracking-tight whitespace-nowrap">

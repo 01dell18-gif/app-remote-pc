@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
-import { Monitor, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export const LoginModal: React.FC = () => {
   const { login, isLoading, error } = useAuthStore();
@@ -27,9 +27,11 @@ export const LoginModal: React.FC = () => {
 
         {/* Logo and Header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-teal-400 flex items-center justify-center shadow-glow-teal text-slate-950 mb-3">
-            <Monitor className="w-7 h-7 stroke-[2.5]" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="FYJ Channel Logo"
+            className="w-16 h-16 rounded-full object-contain shadow-glow-teal border border-slate-700/80 bg-slate-900 p-1 mb-3 hover:scale-105 transition-transform"
+          />
           <h2 className="text-xl font-black text-white tracking-tight">
             FYJ Channel <span className="text-brand-400">Remote</span>
           </h2>
