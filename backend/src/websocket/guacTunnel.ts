@@ -122,9 +122,9 @@ export class GuacTunnel {
   private startInteractiveMockDesktop(ws: WebSocket, payload: RemoteConnectionPayload): void {
     const targetName = payload.connection.settings.hostnameTarget || 'PC-WORKSTATION';
     const targetIp = payload.connection.settings.hostname;
-    const osType = payload.connection.type === 'vnc' ? 'Linux Ubuntu Desktop 24.04' : 'Windows 11 Enterprise';
+    const osType = payload.connection.type === 'vnc' ? 'Linux Ubuntu Desktop' : 'Microsoft Windows 10/11';
 
-    // Kirim pesan inisialisasi sesi mock
+    // Kirim pesan inisialisasi sesi ke frontend
     ws.send(
       JSON.stringify({
         type: 'INIT',
@@ -139,47 +139,82 @@ export class GuacTunnel {
       })
     );
 
-    // State desktop simulator
-    const state = {
-      isStartMenuOpen: false,
-      isTerminalOpen: true,
-      terminalLogs: [
-        `FYJ Channel Remote [Version 1.0.0]`,
-        `(c) 2026 FYJ Network Systems. All rights reserved.`,
-        ``,
-        `Session connected to: ${targetName} (${targetIp})`,
-        `Protocol: Native RDP Shadowing [NamedPipe: SessEnvPublicRpc]`,
-        `Security: NLA TLS 1.3 | Resolution: 1280x720 60Hz`,
-        `Type commands or click anywhere to interact...`,
-      ],
-      mouseX: 640,
-      mouseY: 360,
-      activeWindow: 'terminal',
-      shortcutToast: null as string | null,
-      clipboard: 'Initial remote clipboard content from ' + targetName,
-    };
+    let isAgentConnected = false;
 
-    // Broadcast frame/state interval (10 FPS adaptif)
-    const frameInterval = setInterval(() => {
-      if (ws.readyState !== WebSocket.OPEN) {
-        clearInterval(frameInterval);
-        return;
-      }
+    // Periksa apakah agen penangkap layar aktif di komputer target (Port 5901)
+    const checkAgent = async () => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      try {
+        const resp = await fetch(`http://${targetIp}:5901/status`, { signal: AbortSignal.timeout(600) });
+        if (resp.ok) {
+          isAgentConnected = true;
+          const data = (await resp.json()) as any;
+          ws.send(
+            JSON.stringify({
+              type: 'AGENT_CONNECTED',
+              payload: {
+                targetName,
+                targetIp,
+                resolution: data.resolution || { width: 1920, height: 1080 },
+              },
+            })
+          );
+          return;
+        }
+      } catch {}
 
+      isAgentConnected = false;
       ws.send(
         JSON.stringify({
-          type: 'FRAME_UPDATE',
-          timestamp: Date.now(),
-          state: {
-            ...state,
-            currentTime: new Date().toLocaleTimeString(),
+          type: 'REAL_DEVICE_STATUS',
+          payload: {
+            targetName,
+            targetIp,
+            osType,
+            hasAgent: false,
+            message: `Workstation fisik ${targetName} (${targetIp}) aktif di jaringan. Klik tombol MSTSC di toolbar atas untuk meremote layar penuh asli sekarang.`,
           },
         })
       );
-    }, 100);
+    };
 
-    // Tangkap interaktivitas pengguna dari klien (mouse, keyboard, shortcuts, clipboard)
-    ws.on('message', (raw: string | Buffer) => {
+    checkAgent();
+
+    // Loop penangkapan frame layar asli jika agen aktif (setiap 120ms / ~8 FPS)
+    const streamInterval = setInterval(async () => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        clearInterval(streamInterval);
+        return;
+      }
+
+      if (isAgentConnected) {
+        try {
+          const screenResp = await fetch(`http://${targetIp}:5901/screen`, { signal: AbortSignal.timeout(800) });
+          if (screenResp.ok) {
+            const arrayBuffer = await screenResp.arrayBuffer();
+            const base64 = Buffer.from(arrayBuffer).toString('base64');
+            const w = parseInt(screenResp.headers.get('x-screen-width') || '1920', 10);
+            const h = parseInt(screenResp.headers.get('x-screen-height') || '1080', 10);
+
+            ws.send(
+              JSON.stringify({
+                type: 'REAL_SCREEN_FRAME',
+                timestamp: Date.now(),
+                data: `data:image/jpeg;base64,${base64}`,
+                width: w,
+                height: h,
+              })
+            );
+          }
+        } catch {
+          isAgentConnected = false;
+          checkAgent();
+        }
+      }
+    }, 120);
+
+    // Tangkap input mouse dan keyboard dari peramban dan teruskan ke target asli
+    ws.on('message', async (raw: string | Buffer) => {
       try {
         const msg = JSON.parse(raw.toString('utf8'));
 
@@ -188,53 +223,25 @@ export class GuacTunnel {
           return;
         }
 
-        if (msg.type === 'MOUSE_MOVE') {
-          state.mouseX = msg.x;
-          state.mouseY = msg.y;
-        } else if (msg.type === 'MOUSE_CLICK') {
-          state.mouseX = msg.x;
-          state.mouseY = msg.y;
-
-          // Cek jika klik pada taskbar Start Menu button (kiri bawah)
-          if (msg.x >= 20 && msg.x <= 70 && msg.y >= 670 && msg.y <= 715) {
-            state.isStartMenuOpen = !state.isStartMenuOpen;
-          } else if (msg.isStartMenuOpen && msg.y < 400) {
-            state.isStartMenuOpen = false;
-          }
-
-          // Cek klik pada terminal minimize / close
-          if (msg.x >= 750 && msg.x <= 780 && msg.y >= 120 && msg.y <= 150) {
-            state.isTerminalOpen = !state.isTerminalOpen;
-          }
-        } else if (msg.type === 'KEY_DOWN') {
-          if (msg.key === 'Enter') {
-            state.terminalLogs.push(`guest@${targetName.toLowerCase()}:~$ `);
-          } else if (msg.key === 'Backspace') {
-            const last = state.terminalLogs[state.terminalLogs.length - 1];
-            if (last && last.length > 0) {
-              state.terminalLogs[state.terminalLogs.length - 1] = last.slice(0, -1);
-            }
-          } else if (msg.key && msg.key.length === 1) {
-            const lastIdx = state.terminalLogs.length - 1;
-            state.terminalLogs[lastIdx] = (state.terminalLogs[lastIdx] || '') + msg.key;
-          }
-        } else if (msg.type === 'SHORTCUT') {
-          state.shortcutToast = `Tombol Sistem Dikirim: [${msg.shortcut}]`;
-          state.terminalLogs.push(`[System Event] Injected Key Combination: ${msg.shortcut}`);
-          setTimeout(() => {
-            state.shortcutToast = null;
-          }, 3000);
-        } else if (msg.type === 'CLIPBOARD_SET') {
-          state.clipboard = msg.text;
-          state.terminalLogs.push(`[Clipboard Sync] Teks disinkronkan: "${msg.text.substring(0, 30)}..."`);
+        if (isAgentConnected && (msg.type === 'MOUSE_MOVE' || msg.type === 'MOUSE_CLICK')) {
+          const inputType = msg.type === 'MOUSE_CLICK' ? 'click' : 'move';
+          fetch(`http://${targetIp}:5901/input`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: inputType,
+              x: msg.x,
+              y: msg.y,
+              button: msg.button || 'left',
+            }),
+            signal: AbortSignal.timeout(500),
+          }).catch(() => {});
         }
-      } catch (e) {
-        // Abaikan format biner guacd mentah jika ada
-      }
+      } catch {}
     });
 
     ws.on('close', () => {
-      clearInterval(frameInterval);
+      clearInterval(streamInterval);
     });
   }
 }

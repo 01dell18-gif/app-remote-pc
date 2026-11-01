@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 FYJ Channel Remote - Single-Click Launcher & Service Manager
-Mengelola instalasi dependensi, database, startup backend/frontend,
-serta pembukaan otomatis di browser.
+Mendukung Mode Server (Web Dashboard) dan Mode Klien (Agen Perangkat yang Dikontrol).
 """
 
 import os
@@ -121,9 +120,14 @@ def wait_for_http(url: str, timeout: int = 30) -> bool:
     return False
 
 
-def main():
-    print_banner()
+def run_client_mode():
+    """Menjalankan Agen Klien pada perangkat lain yang ingin dikontrol"""
+    import client_agent
+    client_agent.start_agent_server(5901)
 
+
+def run_server_mode():
+    """Menjalankan Server Web Dashboard Pengawas Lab"""
     # Periksa Node.js
     if not check_node_installed():
         print("\n[!] Node.js belum terpasang atau belum terbaca di PATH.")
@@ -225,6 +229,37 @@ def main():
     except Exception:
         pass
     print("[OK] Aplikasi web FYJ Channel Remote telah dihentikan secara bersih. Sampai jumpa!")
+
+
+def main():
+    print_banner()
+
+    # Cek argumen CLI
+    if len(sys.argv) > 1:
+        arg = sys.argv[1].lower().strip()
+        if arg in ("client", "klien", "target", "2"):
+            run_client_mode()
+            return
+        elif arg in ("server", "master", "web", "1"):
+            run_server_mode()
+            return
+
+    # Menu Pilihan Interaktif
+    print("  Silakan pilih mode operasi untuk komputer ini:")
+    print("    [1] MODE SERVER (Jalankan Dashboard Aplikasi Web Lab)")
+    print("        -> Untuk Komputer Guru / Admin / Pengawas Lab")
+    print("        -> Otomatis cek dependensi, jalankan web, dan buka browser")
+    print("")
+    print("    [2] MODE KLIEN (Jalankan Agen di Perangkat Lain Ini)")
+    print("        -> Untuk Komputer Siswa / PC yang Ingin Diremote & Dipantau")
+    print("        -> Otomatis buka Firewall, aktifkan RDP & streaming layar fisik")
+    print("=" * 67)
+
+    choice = input("\nPilih Mode [1=Server, 2=Klien] (Default 1): ").strip()
+    if choice == "2":
+        run_client_mode()
+    else:
+        run_server_mode()
 
 
 if __name__ == "__main__":

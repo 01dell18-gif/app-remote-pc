@@ -18,17 +18,32 @@ echo.
 set "SCRIPT_DIR=%~dp0"
 cd /d "%SCRIPT_DIR%"
 
-:: 1. Jika Python terpasang, gunakan Python Launcher untuk keandalan maksimal
+:: 1. Jika Python terpasang, delegasikan ke Python Service Manager
 where python >nul 2>nul
 if %errorlevel% equ 0 (
     if exist "%SCRIPT_DIR%launcher.py" (
-        echo [*] Python terdeteksi. Memulai via Python Service Manager...
-        python "%SCRIPT_DIR%launcher.py"
+        python "%SCRIPT_DIR%launcher.py" %1
         exit /b %errorlevel%
     )
 )
 
-:: 2. Fallback Pemeriksaan Node.js & NPM
+:: 2. Fallback Menu Interaktif jika Python belum terpasang
+echo   PILIH MODE OPERASI UNTUK KOMPUTER INI:
+echo   -----------------------------------------------------------------
+echo   [1] MODE SERVER (Jalankan Dashboard Aplikasi Web Lab)
+echo       -> Untuk Komputer Guru / Admin / Pengawas Lab
+echo.
+echo   [2] MODE KLIEN (Pasang & Jalankan Agen di Perangkat Lain Ini)
+echo       -> Untuk Komputer Siswa / PC yang Ingin Diremote & Dipantau
+echo.
+echo   [3] Keluar
+echo   -----------------------------------------------------------------
+set /p MODE="Pilih Mode [1=Server, 2=Klien] (Default 1): "
+if "%MODE%"=="2" goto CLIENT_MODE
+if "%MODE%"=="3" exit /b 0
+
+:SERVER_MODE
+:: Pemeriksaan Node.js & NPM
 echo [*] Memeriksa instalasi Node.js...
 where node >nul 2>nul
 if %errorlevel% neq 0 (
@@ -44,7 +59,7 @@ if %errorlevel% neq 0 (
     call refreshenv >nul 2>nul
 )
 
-:: 3. Pemeriksaan Dependensi Backend
+:: Pemeriksaan Dependensi Backend
 if not exist "%SCRIPT_DIR%backend\.env" (
     if exist "%SCRIPT_DIR%.env.example" (
         copy /y "%SCRIPT_DIR%.env.example" "%SCRIPT_DIR%backend\.env" >nul
@@ -74,7 +89,7 @@ if not exist "%SCRIPT_DIR%backend\prisma\dev.db" (
     cd /d "%SCRIPT_DIR%"
 )
 
-:: 4. Pemeriksaan Dependensi Frontend
+:: Pemeriksaan Dependensi Frontend
 if not exist "%SCRIPT_DIR%frontend\node_modules\" (
     echo [*] Memasang dependensi frontend (npm install)...
     cd /d "%SCRIPT_DIR%frontend"
@@ -82,7 +97,7 @@ if not exist "%SCRIPT_DIR%frontend\node_modules\" (
     cd /d "%SCRIPT_DIR%"
 )
 
-:: 5. Pembersihan Port Lama (3000 & 4000)
+:: Pembersihan Port Lama (3000 & 4000)
 echo [*] Memeriksa port layanan 3000 dan 4000...
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr /r ":3000.*LISTENING"') do (
     if "%%a" neq "0" (
@@ -97,7 +112,7 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr /r ":4000.*LISTENING"') do (
     )
 )
 
-:: 6. Menjalankan Server Backend & Frontend
+:: Menjalankan Server Backend & Frontend
 echo.
 echo [*] Menjalankan Backend Server (Port 4000)...
 cd /d "%SCRIPT_DIR%backend"
@@ -150,6 +165,26 @@ if /i "%USER_INPUT%"=="b" (
     goto INTERACT
 )
 goto INTERACT
+
+:CLIENT_MODE
+echo.
+echo [*] Mengonfigurasi Windows RDP & Firewall pada Komputer Klien ini...
+reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f >nul 2>&1
+netsh advfirewall firewall set rule group="remote desktop" new enable=Yes >nul 2>&1
+netsh advfirewall firewall add rule name="Allow FYJ Remote RDP" dir=in action=allow protocol=TCP localport=3389 >nul 2>&1
+netsh advfirewall firewall add rule name="Allow FYJ Agent" dir=in action=allow protocol=TCP localport=5901 >nul 2>&1
+netsh advfirewall firewall add rule name="Allow ICMP Ping" protocol=icmpv4:8,any dir=in action=allow >nul 2>&1
+
+where python >nul 2>nul
+if %errorlevel% equ 0 (
+    echo [*] Menjalankan Real Hardware Screen Agent...
+    python "%SCRIPT_DIR%client_agent.py"
+) else (
+    echo [OK] Remote Desktop Windows (Port 3389) telah diaktifkan!
+    echo [OK] Firewall telah diizinkan. Komputer ini siap diremote via MSTSC / Dashboard.
+    pause
+)
+exit /b 0
 
 :STOP_ALL
 echo.
